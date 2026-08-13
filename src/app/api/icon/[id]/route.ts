@@ -39,20 +39,20 @@ const DEFAULT_QUALITY = 1;
 const CACHE_SECONDS = 60 * 60 * 24 * 30;
 
 /**
- * El servicio del juego **no responde 404 ante un item inexistente: se queda
- * colgado indefinidamente** (verificado contra el origen). Sin este límite, un
- * identificador mal escrito en una composición compartida dejaría la función
- * colgada para cada persona que abra el link, hasta agotar el tiempo máximo de
- * ejecución. El timeout no es defensa preventiva: es la respuesta a un
- * comportamiento real del origen.
+ * Desde algunas redes, el origen no contesta nada ante ciertos pedidos: se
+ * queda colgado hasta que el cliente se rinde (medido: 25 s sin respuesta).
+ * Desde Vercel el mismo pedido devuelve 404 en menos de medio segundo, así
+ * que el comportamiento depende de la red. El límite es la red de seguridad
+ * para que un caso así no cuelgue la petición de cada persona que abra un
+ * link compartido.
  */
 const UPSTREAM_TIMEOUT_MS = 6000;
 
 /**
- * El origen tampoco aguanta ráfagas: medido con 20 pedidos concurrentes,
- * 17 respondieron y 3 se quedaron colgados. Una composición de dos grupos
- * pide decenas de íconos distintos a la vez, así que un fallo aislado es
- * esperable y no debería dejar un casillero vacío en la pantalla.
+ * El origen falla de forma esporádica bajo ráfagas. Medido con 20 íconos
+ * pedidos a la vez, apareció un 404 para un item que sí existe y que responde
+ * 200 al reintentarlo. Una composición de dos grupos pide decenas de íconos
+ * distintos a la vez, así que es el escenario habitual, no el excepcional.
  *
  * Un reintento alcanza: con el caché de 30 días, cada ícono golpea el origen
  * una sola vez y después lo sirve el CDN.
@@ -119,14 +119,10 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/icon/[id
         });
       }
 
-      // Un 404 del origen es definitivo: no tiene sentido reintentarlo.
-      if (response.status === 404) {
-        return new Response("Ícono no encontrado", {
-          status: 404,
-          headers: { "cache-control": "public, max-age=3600" },
-        });
-      }
-
+      // Un 404 tampoco se da por definitivo al primer intento: bajo ráfaga se
+      // observó que el origen devuelve 404 para items que sí existen. Darlo
+      // por bueno dejaría un hueco visible en la composición durante todo lo
+      // que dure el caché.
       lastFailure = "status";
       lastStatus = response.status;
     } catch (error) {
@@ -137,14 +133,18 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/icon/[id
 
   // Caché corto a propósito: si fue un problema pasajero del origen, queremos
   // que el próximo intento lo resuelva, no que el fallo quede pegado 30 días.
+  const missing = lastStatus === 404;
+
   return new Response(
-    lastFailure === "timeout"
-      ? "El servicio de íconos no respondió; puede que el item no exista"
-      : "El servicio de íconos devolvió un error",
+    missing
+      ? "Ese item no tiene ícono en el servicio del juego"
+      : lastFailure === "timeout"
+        ? "El servicio de íconos no respondió a tiempo"
+        : "El servicio de íconos devolvió un error",
     {
-      status: lastFailure === "timeout" ? 504 : 502,
+      status: missing ? 404 : lastFailure === "timeout" ? 504 : 502,
       headers: {
-        "cache-control": "public, max-age=60",
+        "cache-control": `public, max-age=${missing ? 600 : 60}`,
         // Deja rastro de qué contestó el origen. Sin esto, un fallo en
         // producción es indistinguible de otro y no hay nada que investigar.
         "x-upstream-status": String(lastStatus),

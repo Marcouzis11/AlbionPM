@@ -302,6 +302,8 @@ Cosas que van a romper si no se previenen. Están acá para no descubrirlas dos 
 | Trampa | Prevención |
 |---|---|
 | El export a PNG sale con los íconos en blanco | Servir los íconos por `/api/icon/[id]`, mismo origen. Un canvas contaminado no se puede exportar |
+| El servicio de íconos responde 500 sin motivo aparente | Casi siempre es un parámetro mal calculado de nuestro lado. `Number(null)` es `0`, no `NaN`: un valor por defecto mal escrito puede terminar pidiendo un ícono de 1×1 píxel |
+| Un ícono aparece roto en una composición | El origen devuelve 404 esporádicos para items que sí existen. Por eso el proxy reintenta incluso ante un 404 y lo cachea solo 10 minutos |
 | Destello blanco al cargar en modo oscuro | Espejar el tema en una cookie y leerla en el servidor antes del primer render |
 | La vista pública muestra el líder equivocado | Es el líder **del grupo de esa persona**, no el del grupo 1. Verificarlo explícitamente |
 | El historial "miente" sobre lo que se usó ese día | Archivar congela la composición. Editar una comp vieja reescribe el pasado |
