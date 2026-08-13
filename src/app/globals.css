@@ -1,26 +1,133 @@
 @import "tailwindcss";
 
+/* ============================================================================
+   Paleta
+   ----------------------------------------------------------------------------
+   Inspirada en Albion Online —medieval oscuro, cuero, pergamino, oro— pero sin
+   imitarlo literalmente: esta herramienta se usa apurado y desde el celular,
+   así que cuando la decoración pelea con la legibilidad, gana la legibilidad.
+
+   Dos criterios que explican las elecciones:
+
+   - Los fondos oscuros son carbón CÁLIDO, no azulado. Los íconos del juego
+     vienen recortados sobre fondo oscuro y así se integran en vez de verse
+     pegoteados.
+
+   - La base es deliberadamente sobria. Los colores de build que define cada
+     usuario pintan filas enteras, y una interfaz ya saturada volvería inútil
+     ese sistema de colores, que es funcional y no decorativo.
+
+   Ningún componente escribe un color a mano: todos salen de acá.
+   ========================================================================== */
+
+/* Los valores se declaran UNA sola vez. Los temas se limitan a elegir cuál
+   de los dos juegos se usa, más abajo. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Claro: pergamino */
+  --l-bg: #f4efe4;
+  --l-surface: #fffdf8;
+  --l-surface-2: #eae1d0;
+  --l-border: #d5c9b2;
+  --l-text: #221c14;
+  --l-muted: #6a5f50;
+  --l-accent: #9c7618;
+  --l-accent-hover: #86640f;
+  --l-accent-fg: #fffaf0;
+  --l-danger: #a93226;
+  --l-success: #3d7c40;
+
+  /* Oscuro: carbón y oro */
+  --d-bg: #16130f;
+  --d-surface: #1f1b16;
+  --d-surface-2: #2a241d;
+  --d-border: #3a322a;
+  --d-text: #f0e9df;
+  --d-muted: #a79b8b;
+  --d-accent: #d4a94a;
+  --d-accent-hover: #e5bc5e;
+  --d-accent-fg: #1a1509;
+  --d-danger: #d9544a;
+  --d-success: #5aa85e;
+}
+
+/* Un tema es solo una asignación. Definirlos así evita el error clásico de
+   agregar un color nuevo y olvidarse de uno de los dos modos. */
+:root,
+:root[data-theme="light"] {
+  --bg: var(--l-bg);
+  --surface: var(--l-surface);
+  --surface-2: var(--l-surface-2);
+  --border: var(--l-border);
+  --text: var(--l-text);
+  --muted: var(--l-muted);
+  --accent: var(--l-accent);
+  --accent-hover: var(--l-accent-hover);
+  --accent-fg: var(--l-accent-fg);
+  --danger: var(--l-danger);
+  --success: var(--l-success);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: var(--d-bg);
+  --surface: var(--d-surface);
+  --surface-2: var(--d-surface-2);
+  --border: var(--d-border);
+  --text: var(--d-text);
+  --muted: var(--d-muted);
+  --accent: var(--d-accent);
+  --accent-hover: var(--d-accent-hover);
+  --accent-fg: var(--d-accent-fg);
+  --danger: var(--d-danger);
+  --success: var(--d-success);
+  color-scheme: dark;
+}
+
+/* "Seguir al sistema": solo aplica cuando el usuario NO eligió explícitamente.
+   El `:not([data-theme])` es lo que impide que la preferencia del sistema le
+   gane a una elección deliberada. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: var(--d-bg);
+    --surface: var(--d-surface);
+    --surface-2: var(--d-surface-2);
+    --border: var(--d-border);
+    --text: var(--d-text);
+    --muted: var(--d-muted);
+    --accent: var(--d-accent);
+    --accent-hover: var(--d-accent-hover);
+    --accent-fg: var(--d-accent-fg);
+    --danger: var(--d-danger);
+    --success: var(--d-success);
+    color-scheme: dark;
+  }
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Foco visible y consistente. Usa el acento porque es el color que ya
+   significa "esto está activo" en el resto de la interfaz. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
