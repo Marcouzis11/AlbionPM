@@ -85,6 +85,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/icon/[id
   const upstream = `${RENDER_BASE}/${encodeURIComponent(itemId)}.png?size=${size}&quality=${quality}`;
 
   let lastFailure: "timeout" | "status" = "timeout";
+  let lastStatus = 0;
 
   for (let attempt = 0; attempt < UPSTREAM_ATTEMPTS; attempt++) {
     if (attempt > 0) await sleep(RETRY_DELAY_MS);
@@ -93,6 +94,12 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/icon/[id
       const response = await fetch(upstream, {
         signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
         cache: "no-store",
+        headers: {
+          // Identificarse es buena práctica con un servicio ajeno y gratuito,
+          // y además varios servicios rechazan pedidos sin User-Agent.
+          "user-agent": "AlbionPM/0.1 (+https://albion-pm.vercel.app)",
+          accept: "image/png,image/*;q=0.8,*/*;q=0.5",
+        },
       });
 
       if (response.ok) {
@@ -114,6 +121,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/icon/[id
       }
 
       lastFailure = "status";
+      lastStatus = response.status;
     } catch (error) {
       lastFailure =
         error instanceof Error && error.name === "TimeoutError" ? "timeout" : "status";
@@ -128,7 +136,12 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/icon/[id
       : "El servicio de íconos devolvió un error",
     {
       status: lastFailure === "timeout" ? 504 : 502,
-      headers: { "cache-control": "public, max-age=60" },
+      headers: {
+        "cache-control": "public, max-age=60",
+        // Deja rastro de qué contestó el origen. Sin esto, un fallo en
+        // producción es indistinguible de otro y no hay nada que investigar.
+        "x-upstream-status": String(lastStatus),
+      },
     },
   );
 }
