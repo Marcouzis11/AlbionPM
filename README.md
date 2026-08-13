@@ -4,6 +4,8 @@
 
 Armá la composición una vez, guardala, reutilizala y compartila con un link. El jugador la abre desde el celular, se busca por su nombre y ve exactamente qué equiparse, en qué grupo va y a quién tiene que seguir.
 
+**En vivo:** https://albion-pm.vercel.app
+
 > Estado: en desarrollo. Ver el [roadmap](#roadmap).
 
 ---
@@ -109,8 +111,8 @@ Dos límites que conviene conocer: el plan Hobby de Vercel es **solo para uso no
 
 | Fase | Contenido | Estado |
 |---|---|---|
-| 0 | Documentación, scaffold y deploy | En curso |
-| 1 | Auth, esquema de base, temas y navegación | Pendiente |
+| 0 | Documentación, scaffold y deploy | ✅ Listo |
+| 1 | Auth, esquema de base, temas y navegación | En curso |
 | 2 | Biblioteca de builds con carpetas, tags y colores | Pendiente |
 | 3 | Party maker, Disarray e historial | Pendiente |
 | 4 | Compartir y vista pública del jugador | Pendiente |
