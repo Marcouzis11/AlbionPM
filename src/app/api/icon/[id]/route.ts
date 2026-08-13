@@ -63,8 +63,15 @@ const RETRY_DELAY_MS = 500;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function clampInt(value: string | null, min: number, max: number, fallback: number) {
+  // `Number(null)` es 0, no NaN, y `Number("")` también es 0. Sin este
+  // descarte previo, un parámetro ausente se "colaba" como 0 y terminaba
+  // recortado al mínimo en vez de usar el valor por defecto: pedíamos íconos
+  // de 1×1 píxel y el servicio del juego respondía 500.
+  if (value === null || value.trim() === "") return fallback;
+
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
+
   return Math.min(max, Math.max(min, Math.trunc(parsed)));
 }
 
