@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "build:items": "node scripts/build-items.mts"
   },
   "dependencies": {
     "next": "16.3.1",
