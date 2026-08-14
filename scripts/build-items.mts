@@ -73,6 +73,26 @@ const NO_SON_MONTURAS = new Set([
   "COW",
 ]);
 
+/**
+ * Cosas que técnicamente ocupan un slot de equipo pero que nadie lleva a una
+ * party, y que solo ensucian el buscador cuando estás armando una comp.
+ *
+ * - `_TOOL_`: hachas de leñador, picos, hoces, cuchillos de despellejar y las
+ *   cañas de pescar, que son `2H_TOOL_FISHINGROD`.
+ * - `_GATHERER_`: los atuendos de profesión (minero, pescador, leñador,
+ *   cosechador), de cualquier tier.
+ */
+const EXCLUIR = /_TOOL_|_GATHERER_/;
+
+/**
+ * Tier mínimo. Por debajo de T4 no se usa nada en contenido organizado, y son
+ * cientos de entradas que solo estorban al buscar.
+ *
+ * Las monturas de evento (`UNIQUE_MOUNT_`) llevan tier 0 porque su nombre no
+ * lo indica; se dejan pasar aparte.
+ */
+const TIER_MINIMO = 4;
+
 export type EquipmentSlot =
   | "mainhand"
   | "offhand"
@@ -96,6 +116,15 @@ export type CatalogItem = {
   tier: number;
   /** Solo en `mainhand`: si ocupa las dos manos y bloquea el off-hand */
   twoHanded?: true;
+  /**
+   * Si admite encantamiento.
+   *
+   * No se adivina por slot: se toma del propio volcado del juego, que incluye
+   * la variante `@1` como entrada aparte para todo lo que se puede encantar.
+   * Las monturas y las comidas no lo admiten; las armas, armaduras, capas y
+   * pociones sí.
+   */
+  ench?: true;
 };
 
 type RawItem = {
@@ -113,7 +142,16 @@ async function main() {
   const raw: RawItem[] = await response.json();
   console.log(`  ${raw.length.toLocaleString("es")} entradas en el origen`);
 
+  // Todo lo que se puede encantar aparece en el volcado también con `@1`.
+  // Es la fuente autoritativa: cualquier otra regla sería una suposición.
+  const encantables = new Set<string>();
+  for (const entry of raw) {
+    const match = /^(.+)@1$/.exec(entry.UniqueName ?? "");
+    if (match) encantables.add(match[1]);
+  }
+
   const items: CatalogItem[] = [];
+  let descartados = 0;
 
   for (const entry of raw) {
     const uniqueName = entry.UniqueName;
@@ -151,6 +189,18 @@ async function main() {
 
     if (!slot) continue;
 
+    // Herramientas, cañas de pescar y ropa de profesión.
+    if (EXCLUIR.test(uniqueName)) {
+      descartados++;
+      continue;
+    }
+
+    // Tier bajo. Las monturas de evento van con tier 0 y quedan exentas.
+    if (tier > 0 && tier < TIER_MINIMO) {
+      descartados++;
+      continue;
+    }
+
     // Sin nombre en inglés no hay nada que mostrar ni que buscar.
     const en = entry.LocalizedNames?.["EN-US"];
     if (!en) continue;
@@ -166,6 +216,7 @@ async function main() {
     };
 
     if (conTier && conTier[2].startsWith("2H_")) item.twoHanded = true;
+    if (encantables.has(uniqueName)) item.ench = true;
 
     items.push(item);
   }
@@ -198,6 +249,7 @@ async function main() {
     );
   }
 
+  console.log(`\n${descartados.toLocaleString("es")} descartados (herramientas, ropa de profesión, tier bajo)`);
   console.log(`\n${items.length.toLocaleString("es")} items equipables:`);
   for (const [slot, count] of [...bySlot].sort()) {
     console.log(`  ${slot.padEnd(10)} ${count}`);

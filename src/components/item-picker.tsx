@@ -13,7 +13,15 @@ import type { BuildItem, EquipmentSlot, Enchantment, Quality } from "@/lib/items
  * elegir un arma; así el más pesado son ~93 KB y solo el del slot que se abre.
  */
 
-type SlotItem = { id: string; en: string; es: string; tier: number; twoHanded?: true };
+type SlotItem = {
+  id: string;
+  en: string;
+  es: string;
+  tier: number;
+  twoHanded?: true;
+  /** Si admite encantamiento. Sale del volcado del juego, no de una regla. */
+  ench?: true;
+};
 
 /** Una vez descargado, el catálogo de un slot no se vuelve a pedir. */
 const cache = new Map<EquipmentSlot, Promise<SlotItem[]>>();
@@ -65,9 +73,11 @@ export function ItemPicker({
   const [tier, setTier] = useState<number | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Se carga al abrir el panel y también cuando ya hay un item elegido: sin el
+  // catálogo no se puede mostrar el nombre ni saber si admite encantamiento.
   useEffect(() => {
-    if (open) void loadSlot(slot).then(setItems);
-  }, [open, slot]);
+    if (open || value) void loadSlot(slot).then(setItems);
+  }, [open, slot, value]);
 
   // Cerrar al hacer click afuera o con Escape.
   useEffect(() => {
@@ -143,7 +153,12 @@ export function ItemPicker({
 
           {/* Encantamiento sin abrir el selector: es lo que más se toquetea al
               armar una build, y entrar al panel cada vez sería una fricción
-              absurda para subir un punto. El ícono cambia al instante. */}
+              absurda para subir un punto. El ícono cambia al instante.
+
+              Solo aparece si el item lo admite. Las monturas no se encantan, y
+              entre las capas hay de las dos: una regla por slot sería
+              incorrecta, así que el dato viene por item desde el volcado. */}
+          {seleccionado?.ench && (
           <div className="absolute bottom-1 right-1 flex items-center gap-0.5 rounded-md border border-border bg-surface px-0.5">
             <button
               type="button"
@@ -171,6 +186,7 @@ export function ItemPicker({
               +
             </button>
           </div>
+          )}
         </>
       )}
 
