@@ -97,3 +97,23 @@ function normalizar(row: any): Composition {
       ),
   };
 }
+
+/**
+ * Todas las composiciones de un juego, para la pantalla de Party Maker.
+ *
+ * Va en una sola consulta y no una por contenido: con ocho contenidos serían
+ * ocho viajes al servidor para pintar una pantalla que se abre todo el tiempo.
+ */
+export async function listCompositionsForGame(
+  gameId: string,
+): Promise<CompositionSummary[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("compositions")
+    .select(`${CAMPOS}, contents!inner(game_id)`)
+    .eq("contents.game_id", gameId)
+    .order("event_at", { ascending: false });
+
+  if (error) throw new Error(`No se pudieron leer las composiciones: ${error.message}`);
+  return (data ?? []) as unknown as CompositionSummary[];
+}
