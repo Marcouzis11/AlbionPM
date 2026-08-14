@@ -54,7 +54,7 @@ Tampoco pretende competir con el Character Builder oficial ni con los planificad
 |---|---|
 | Framework | Next.js 16 (App Router) + TypeScript |
 | Base de datos | Supabase (PostgreSQL) |
-| Autenticación | Supabase Auth — Discord OAuth + email |
+| Autenticación | Supabase Auth — email y contraseña |
 | Estilos | Tailwind CSS v4 + shadcn/ui |
 | Estado de cliente | Zustand |
 | Validación | Zod |

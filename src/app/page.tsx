@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { ItemIcon } from "@/components/item-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { loadCatalog } from "@/lib/items";
@@ -42,7 +44,21 @@ export default async function Home() {
             Gestor de partys para Albion Online
           </p>
         </div>
-        <ThemeToggle initial={theme} />
+        <div className="flex items-center gap-3">
+          <ThemeToggle initial={theme} />
+          <Link
+            href="/entrar"
+            className="rounded-lg border border-border px-3 py-1.5 text-sm transition-colors hover:bg-surface-2"
+          >
+            Entrar
+          </Link>
+          <Link
+            href="/registro"
+            className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+          >
+            Crear cuenta
+          </Link>
+        </div>
       </header>
 
       <section className="space-y-4">

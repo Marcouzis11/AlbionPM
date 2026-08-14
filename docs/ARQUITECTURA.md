@@ -45,7 +45,7 @@ El Disarray no se puede calcular con exactitud desde fuera del juego. Se muestra
 |---|---|---|
 | Framework | **Next.js 16, App Router** | La vista pública se renderiza en el servidor: llega como HTML listo, sin esperar JavaScript. Es la diferencia entre servir a alguien con mala señal o no servirlo. Además, un solo proyecto para front y back. |
 | Base de datos | **Supabase (PostgreSQL)** | El modelo es relacional y jerárquico. Postgres aporta integridad referencial, arrays nativos para tags y CTEs recursivas para las carpetas anidadas. |
-| Auth | **Supabase Auth** | El provider de Discord se habilita desde el panel, sin escribir el flujo OAuth. La comunidad de Albion vive en Discord. |
+| Auth | **Supabase Auth**, email y contraseña | Se descartó Discord OAuth: obligaba a registrar una aplicación en el portal de desarrolladores de Discord antes de poder siquiera probar el login, y ese trámite bloqueaba el avance. Email y contraseña no depende de nadie. Si más adelante se quiere Discord, es un proveedor más en el mismo `auth.users` y no cambia el modelo. |
 | Estilos | **Tailwind v4 + shadcn/ui** | shadcn instala los componentes como código propio del repo, no como dependencia opaca. Cuando haya que modificar un `Dialog`, se modifica. |
 | Estado de cliente | **Zustand** | El editor de composición y la calculadora flotante mantienen estado que sobrevive a la navegación. Zustand es mínimo y no necesita provider. Redux sería desproporcionado. |
 | Validación | **Zod** | Un mismo esquema valida el formulario, el payload del servidor y la forma del `jsonb`. Una sola fuente de verdad. |
