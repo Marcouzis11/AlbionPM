@@ -104,29 +104,29 @@ export function BuildEditor({ build, roles, usedColors, onClose, onSaved }: Prop
         className="flex h-full w-full max-w-2xl flex-col overflow-y-auto border-l border-border bg-bg p-6"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex shrink-0 items-start justify-between gap-3">
           <input
             value={draft.name}
             onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-            className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-1 py-1 text-xl font-semibold hover:border-border focus:border-border"
+            className="min-w-0 flex-1 truncate rounded-lg border border-transparent bg-transparent px-2 py-1 text-xl font-semibold hover:border-border focus:border-border"
           />
           <button
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="rounded-lg px-2 py-1 text-muted hover:bg-surface-2"
+            className="shrink-0 rounded-lg px-2 py-1 text-muted hover:bg-surface-2"
           >
             ×
           </button>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-3">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <select
             value={draft.role_id ?? ""}
             onChange={(event) =>
               setDraft({ ...draft, role_id: event.target.value || null })
             }
-            className="rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm"
+            className="h-9 min-w-40 rounded-lg border border-border bg-surface-2 px-2.5 text-sm"
           >
             <option value="">Sin rol</option>
             {roles.map((role) => (
@@ -140,7 +140,7 @@ export function BuildEditor({ build, roles, usedColors, onClose, onSaved }: Prop
             <button
               type="button"
               onClick={() => setShowColor((v) => !v)}
-              className="flex items-center gap-2 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm"
+              className="flex h-9 items-center gap-2 rounded-lg border border-border bg-surface-2 px-2.5 text-sm"
             >
               <span
                 aria-hidden
@@ -166,7 +166,7 @@ export function BuildEditor({ build, roles, usedColors, onClose, onSaved }: Prop
           <h3 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted">
             Equipo
           </h3>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="mx-auto grid max-w-md grid-cols-3 gap-3">
             {DISPOSICION.flat().map((slot, indice) =>
               slot === null ? (
                 // Hueco de la grilla: mantiene la forma del panel del juego.
@@ -196,16 +196,16 @@ export function BuildEditor({ build, roles, usedColors, onClose, onSaved }: Prop
             {draft.tags.map((tag) => (
               <span
                 key={tag}
-                className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-xs"
+                className="flex max-w-[12rem] items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-xs"
               >
-                {tag}
+                <span className="truncate">{tag}</span>
                 <button
                   type="button"
                   onClick={() =>
                     setDraft({ ...draft, tags: draft.tags.filter((t) => t !== tag) })
                   }
                   aria-label={`Quitar ${tag}`}
-                  className="text-muted hover:text-danger"
+                  className="shrink-0 text-muted hover:text-danger"
                 >
                   ×
                 </button>

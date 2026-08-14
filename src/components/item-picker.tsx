@@ -121,94 +121,99 @@ export function ItemPicker({
 
   return (
     <div className="relative">
-      <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted">
-        {label}
-      </span>
-
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
-        title={disabled ? disabledReason : undefined}
-        className="flex h-[76px] w-full items-center gap-2 rounded-lg border border-border bg-surface-2 p-2 pb-6 text-left transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-40"
+      {/* La ficha tiene alto FIJO y la misma estructura esté vacía o llena, con
+          o sin control de encantamiento. Si el alto dependiera del contenido,
+          cada fila de la grilla quedaría de una altura distinta y el conjunto
+          se vería torcido. */}
+      <div
+        className={`flex h-[132px] flex-col overflow-hidden rounded-lg border bg-surface-2 transition-colors ${
+          disabled ? "border-border opacity-40" : "border-border hover:border-accent"
+        }`}
       >
-        {value ? (
-          <>
-            <ItemIcon item={value} size={44} />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-xs">
+        <span className="truncate px-2 pt-1.5 text-center text-[10px] uppercase tracking-wider text-muted">
+          {label}
+        </span>
+
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => setOpen((v) => !v)}
+          title={disabled ? disabledReason : (seleccionado?.es ?? undefined)}
+          className="flex min-h-0 flex-1 flex-col items-center justify-start gap-1 px-1.5 pb-1 disabled:cursor-not-allowed"
+        >
+          {value ? (
+            <>
+              <ItemIcon item={value} size={44} />
+              {/* Dos líneas como máximo y cortado con puntos suspensivos: los
+                  nombres del juego van de «Capa» a «Bocadillo de cordero
+                  avaloniano» y no pueden decidir el alto de la ficha. */}
+              <span className="line-clamp-2 text-center text-[11px] leading-tight">
                 {seleccionado?.es ?? value.id}
               </span>
-              <span className="block text-[11px] text-muted">
-                {seleccionado?.fixedEnch
-                  ? `${etiquetaTier(seleccionado)} · viene encantado`
-                  : value.quality && value.quality > 1
-                    ? CALIDADES[value.quality]
-                    : "\u00a0"}
-              </span>
+            </>
+          ) : (
+            <span className="flex flex-1 items-center text-center text-[11px] text-muted">
+              {disabled ? disabledReason : "Vacío"}
             </span>
-          </>
-        ) : (
-          <span className="text-xs text-muted">
-            {disabled ? disabledReason : "Vacío"}
-          </span>
-        )}
-      </button>
+          )}
+        </button>
+
+        {/* Pie de alto fijo. Se reserva SIEMPRE, tenga o no encantamiento, para
+            que todas las fichas midan lo mismo. */}
+        <div className="flex h-6 shrink-0 items-center justify-center border-t border-border/60 px-1">
+          {value && !disabled && seleccionado?.ench ? (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-label="Bajar encantamiento"
+                disabled={(value.ench ?? 0) <= 0}
+                onClick={() =>
+                  onChange({ ...value, ench: Math.max(0, (value.ench ?? 0) - 1) as Enchantment })
+                }
+                className="w-4 text-xs leading-none text-muted hover:text-text disabled:opacity-30"
+              >
+                −
+              </button>
+              <span className="w-6 text-center font-mono text-[11px] tabular-nums">
+                .{value.ench ?? 0}
+              </span>
+              <button
+                type="button"
+                aria-label="Subir encantamiento"
+                disabled={(value.ench ?? 0) >= 4}
+                onClick={() =>
+                  onChange({ ...value, ench: Math.min(4, (value.ench ?? 0) + 1) as Enchantment })
+                }
+                className="w-4 text-xs leading-none text-muted hover:text-text disabled:opacity-30"
+              >
+                +
+              </button>
+            </div>
+          ) : value && seleccionado?.fixedEnch ? (
+            <span className="font-mono text-[11px] text-muted">
+              {etiquetaTier(seleccionado)}
+            </span>
+          ) : (
+            <span className="text-[11px] text-muted">&nbsp;</span>
+          )}
+        </div>
+      </div>
 
       {value && !disabled && (
-        <>
-          <button
-            type="button"
-            onClick={() => onChange(undefined)}
-            aria-label={`Quitar ${label}`}
-            className="absolute right-1 top-5 rounded px-1 text-xs text-muted hover:text-danger"
-          >
-            ×
-          </button>
-
-          {/* Encantamiento sin abrir el selector: es lo que más se toquetea al
-              armar una build, y entrar al panel cada vez sería una fricción
-              absurda para subir un punto. El ícono cambia al instante.
-
-              Solo aparece si el item lo admite. Las monturas no se encantan, y
-              entre las capas hay de las dos: una regla por slot sería
-              incorrecta, así que el dato viene por item desde el volcado. */}
-          {seleccionado?.ench && (
-          <div className="absolute bottom-1 right-1 flex items-center gap-0.5 rounded-md border border-border bg-surface px-0.5">
-            <button
-              type="button"
-              aria-label="Bajar encantamiento"
-              disabled={(value.ench ?? 0) <= 0}
-              onClick={() =>
-                onChange({ ...value, ench: Math.max(0, (value.ench ?? 0) - 1) as Enchantment })
-              }
-              className="px-1 text-xs leading-none text-muted hover:text-text disabled:opacity-30"
-            >
-              −
-            </button>
-            <span className="min-w-[1.6rem] text-center font-mono text-[11px] tabular-nums">
-              .{value.ench ?? 0}
-            </span>
-            <button
-              type="button"
-              aria-label="Subir encantamiento"
-              disabled={(value.ench ?? 0) >= 4}
-              onClick={() =>
-                onChange({ ...value, ench: Math.min(4, (value.ench ?? 0) + 1) as Enchantment })
-              }
-              className="px-1 text-xs leading-none text-muted hover:text-text disabled:opacity-30"
-            >
-              +
-            </button>
-          </div>
-          )}
-        </>
+        <button
+          type="button"
+          onClick={() => onChange(undefined)}
+          aria-label={`Quitar ${label}`}
+          className="absolute -right-1.5 -top-1.5 z-10 flex size-5 items-center justify-center rounded-full border border-border bg-surface text-xs text-muted shadow hover:text-danger"
+        >
+          ×
+        </button>
       )}
 
       {open && (
         <div
           ref={panelRef}
-          className="absolute left-0 top-full z-20 mt-1 w-80 rounded-xl border border-border bg-surface p-3 shadow-xl"
+          className="absolute left-1/2 top-full z-30 mt-1 w-[min(20rem,80vw)] -translate-x-1/2 rounded-xl border border-border bg-surface p-3 shadow-xl"
         >
           <input
             autoFocus

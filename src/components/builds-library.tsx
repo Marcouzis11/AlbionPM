@@ -104,7 +104,7 @@ export function BuildsLibrary({ gameId, folders, builds, roles }: Props) {
   return (
     <div className="flex h-full gap-6">
       {/* Árbol de carpetas */}
-      <aside className="w-56 shrink-0 space-y-1">
+      <aside className="w-56 shrink-0 space-y-1 overflow-y-auto pr-1">
         <div className="flex items-center justify-between px-1 pb-1">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
             Carpetas
@@ -151,12 +151,12 @@ export function BuildsLibrary({ gameId, folders, builds, roles }: Props) {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Buscar build…"
-            className="w-48 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm"
+            className="h-9 w-48 rounded-lg border border-border bg-surface px-3 text-sm"
           />
           <select
             value={roleFilter}
             onChange={(event) => setRoleFilter(event.target.value)}
-            className="rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm"
+            className="h-9 min-w-44 rounded-lg border border-border bg-surface px-2.5 text-sm"
           >
             <option value="">Todos los roles</option>
             {roles.map((role) => (
@@ -169,7 +169,7 @@ export function BuildsLibrary({ gameId, folders, builds, roles }: Props) {
             <select
               value={tagFilter}
               onChange={(event) => setTagFilter(event.target.value)}
-              className="rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm"
+              className="h-9 min-w-44 rounded-lg border border-border bg-surface px-2.5 text-sm"
             >
               <option value="">Todos los tags</option>
               {allTags.map((tag) => (
@@ -182,7 +182,7 @@ export function BuildsLibrary({ gameId, folders, builds, roles }: Props) {
           <button
             type="button"
             onClick={nuevaBuild}
-            className="ml-auto rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg hover:bg-accent-hover"
+            className="ml-auto h-9 shrink-0 rounded-lg bg-accent px-3 text-sm font-medium text-accent-fg hover:bg-accent-hover"
           >
             + Nueva build
           </button>
@@ -199,28 +199,30 @@ export function BuildsLibrary({ gameId, folders, builds, roles }: Props) {
             {visibles.map((build) => (
               <li key={build.id}>
                 <div
-                  className="flex items-center gap-3 rounded-lg border border-border p-2.5"
+                  className="flex h-16 items-center gap-3 rounded-lg border border-border px-3"
                   style={
                     build.color
                       ? { background: `${build.color}22`, borderColor: `${build.color}66` }
                       : undefined
                   }
                 >
-                  <div className="flex gap-1">
+                  <div className="flex shrink-0 gap-1">
                     {EQUIPMENT_SLOTS.slice(0, 6).map((slot) =>
                       build.items[slot] ? (
                         <ItemIcon key={slot} item={build.items[slot]} size={32} />
                       ) : (
                         <span
                           key={slot}
-                          className="size-8 rounded border border-dashed border-border"
+                          className="size-8 shrink-0 rounded border border-dashed border-border"
                         />
                       ),
                     )}
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{build.name}</p>
+                    <p className="truncate font-medium" title={build.name}>
+                      {build.name}
+                    </p>
                     <p className="truncate text-xs text-muted">
                       {build.role_id ? roleById.get(build.role_id)?.name : "Sin rol"}
                       {build.tags.length > 0 && ` · ${build.tags.join(", ")}`}
@@ -230,7 +232,7 @@ export function BuildsLibrary({ gameId, folders, builds, roles }: Props) {
                   <button
                     type="button"
                     onClick={() => setEditing(build)}
-                    className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-surface-2"
+                    className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-surface-2"
                   >
                     Editar
                   </button>
@@ -238,7 +240,7 @@ export function BuildsLibrary({ gameId, folders, builds, roles }: Props) {
                     type="button"
                     onClick={() => pedirBorrarBuild(build)}
                     aria-label={`Borrar ${build.name}`}
-                    className="rounded-lg px-2 py-1.5 text-muted hover:text-danger"
+                    className="shrink-0 rounded-lg px-2 py-1.5 text-muted hover:text-danger"
                   >
                     ×
                   </button>
@@ -318,7 +320,7 @@ function FolderNode({
           type="button"
           onClick={() => onCreateChild(folder.id)}
           title="Subcarpeta"
-          className="opacity-0 transition-opacity group-hover:opacity-100"
+          className="shrink-0 px-1 text-muted opacity-0 transition-opacity hover:text-text group-hover:opacity-100"
         >
           +
         </button>
@@ -326,7 +328,7 @@ function FolderNode({
           type="button"
           onClick={() => onDelete(folder)}
           title="Borrar carpeta"
-          className="px-1 text-muted opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
+          className="shrink-0 px-1 text-muted opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
         >
           ×
         </button>
