@@ -154,6 +154,30 @@ El archivo completo es demasiado grande para pedirlo en tiempo real. `scripts/bu
 
 ### Íconos
 
+**Los que se usan están en el repositorio**, en `public/icons/`: 4.565 archivos
+a 128 px, servidos por el CDN sin ejecutar ninguna función y sin depender de
+nadie. `ItemIcon` los intenta primero y solo cae al proxy si no están.
+
+Qué se descarga (`npm run icons:download`, ver `scripts/download-icons.mts`):
+equipo de **T7 y T8** con sus cinco niveles de encantamiento, más **todas** las
+monturas, capas, comidas y pociones de cualquier tier. Queda afuera el equipo de
+T2 a T6, que no se usa en contenido organizado y es justo lo que hacía explotar
+el tamaño: con todo serían más de 200 MB.
+
+Medido en producción, 27 íconos en paralelo: **1,1 s en total contra el CDN**,
+frente a 1,3 s de un solo ícono por el proxy en frío.
+
+Dos cosas que aparecieron al hacerlo:
+
+- **El catálogo se perdía 89 monturas.** Las domadas viven bajo
+  `FARM_..._GROWN` y no bajo `MOUNT_` — el garrapresta es
+  `T5_FARM_COUGAR_GROWN` —, y las de evento bajo `UNIQUE_MOUNT_`.
+- **Las monturas no tienen arte distinto por encantamiento**: las cinco
+  variantes son el mismo archivo. Las armas sí. Por eso 1.055 de los 4.565 son
+  duplicados exactos, que git deduplica solo al guardar por contenido.
+
+### El proxy, para todo lo demás
+
 Fuente: `https://render.albiononline.com/v1/item/{UniqueName}.png?quality={1-5}&size={1-217}`
 
 Servicio oficial. El encantamiento va dentro del propio ID (`T4_MAIN_SWORD@2`). No se aloja ninguna imagen.
