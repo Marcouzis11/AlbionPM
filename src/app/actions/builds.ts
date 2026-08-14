@@ -22,7 +22,16 @@ const buildItemSchema = z.object({
   quality: z.number().int().min(1).max(5).optional(),
 });
 
-const itemsSchema = z.record(
+/**
+ * Los nueve slots, todos opcionales.
+ *
+ * Va con `partialRecord` y NO con `record`: en Zod 4, `z.record` con claves de
+ * enumeración es exhaustivo, o sea que exige que estén las nueve. Con eso,
+ * ninguna build a medio armar se podía guardar — y una con arma a dos manos no
+ * se podía guardar NUNCA, porque el off-hand se bloquea a propósito y entonces
+ * esa clave jamás iba a existir.
+ */
+const itemsSchema = z.partialRecord(
   z.enum([
     "mainhand",
     "offhand",
