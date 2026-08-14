@@ -1,5 +1,6 @@
 "use client";
 
+import { Plus, Star, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
@@ -14,9 +15,8 @@ import {
   updateGroup,
   updateSlot,
 } from "@/app/actions/compositions";
-import { DisarrayPanel } from "@/components/disarray-panel";
-import { SharePanel } from "@/components/share-panel";
-import { ItemIcon } from "@/components/item-icon";
+import { BuildPeek } from "@/components/build-peek";
+import { CompHeader } from "@/components/comp-header";
 import type { Build, Role } from "@/lib/builds-shared";
 import {
   contarConfirmados,
@@ -26,23 +26,30 @@ import {
   type Composition,
 } from "@/lib/compositions-shared";
 
-type Props = {
+/**
+ * Editor de composición.
+ *
+ * Dos grupos por fila como máximo, y de ahí para abajo. Un grupo son 20
+ * personas: tres en fila dejarían cada columna tan angosta que no entraría ni
+ * el nombre, y en un monitor normal obligarían a scrollear de lado.
+ */
+export function CompositionEditor({
+  composition,
+  builds,
+  roles,
+}: {
   composition: Composition;
   builds: Build[];
   roles: Role[];
-};
-
-export function CompositionEditor({ composition, builds, roles }: Props) {
+}) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [vaciando, setVaciando] = useState(false);
 
   const buildById = useMemo(() => new Map(builds.map((b) => [b.id, b])), [builds]);
-  const roleById = useMemo(() => new Map(roles.map((r) => [r.id, r])), [roles]);
 
   const confirmados = contarConfirmados(composition);
   const lugares = contarLugares(composition);
-
   const bloqueado = composition.is_archived;
 
   function run(fn: () => Promise<unknown>) {
@@ -53,98 +60,77 @@ export function CompositionEditor({ composition, builds, roles }: Props) {
   }
 
   return (
-    <div className="space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-4">
+    <div className="space-y-4">
+      <header className="space-y-3">
         <div className="min-w-0">
           <input
             defaultValue={composition.name}
             disabled={bloqueado}
+            aria-label="Nombre de la composición"
             onBlur={(event) =>
               event.target.value !== composition.name &&
               run(() => updateComposition(composition.id, { name: event.target.value }))
             }
-            className="w-full rounded-lg border border-transparent bg-transparent px-1 text-2xl font-semibold hover:border-border focus:border-border disabled:opacity-70"
+            className="w-full rounded-lg border border-transparent bg-transparent px-2 py-1 text-2xl font-semibold hover:border-border focus:border-border disabled:opacity-70"
           />
           <input
             defaultValue={composition.description ?? ""}
             disabled={bloqueado}
-            placeholder="Descripción: Alianza Garcia vs Alianza Guerreros, hora, punto de encuentro…"
+            aria-label="Descripción"
+            placeholder="Alianza Garcia vs Alianza Guerreros — 20:30 en Martlock"
             onBlur={(event) =>
               run(() =>
                 updateComposition(composition.id, { description: event.target.value }),
               )
             }
-            className="mt-1 w-full rounded-lg border border-transparent bg-transparent px-1 text-sm text-muted hover:border-border focus:border-border disabled:opacity-70"
+            className="w-full rounded-lg border border-transparent bg-transparent px-2 py-1 text-sm text-muted hover:border-border focus:border-border disabled:opacity-70"
           />
-          <p className="mt-1 px-1 text-xs text-muted">
+          <p className="px-2 text-xs text-muted">
             {formatearFecha(composition.event_at, composition.event_tz)}
+            {bloqueado && " · archivada, solo lectura"}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {bloqueado && (
-            <span className="rounded-lg border border-accent/50 bg-accent/10 px-2.5 py-1.5 text-xs text-accent">
-              🔒 Archivada — solo lectura
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() =>
-              run(() =>
-                updateComposition(composition.id, { is_archived: !composition.is_archived }),
-              )
-            }
-            className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-surface-2"
-          >
-            {bloqueado ? "Desarchivar" : "Archivar"}
-          </button>
-          {!bloqueado && (
-            <button
-              type="button"
-              onClick={() => setVaciando(true)}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-surface-2"
-            >
-              Vaciar
-            </button>
-          )}
-        </div>
+        <CompHeader
+          compositionId={composition.id}
+          confirmados={confirmados}
+          lugares={lugares}
+          shareSlug={composition.share_slug}
+          visibility={composition.visibility}
+          bloqueado={bloqueado}
+          onArchivar={() =>
+            run(() =>
+              updateComposition(composition.id, { is_archived: !composition.is_archived }),
+            )
+          }
+          onVaciar={() => setVaciando(true)}
+        />
       </header>
 
-      <div className="flex gap-5">
-        <div className="min-w-0 flex-1 space-y-5">
-          {composition.groups.map((group) => (
-            <GroupCard
-              key={group.id}
-              group={group}
-              builds={builds}
-              roles={roles}
-              buildById={buildById}
-              roleById={roleById}
-              bloqueado={bloqueado}
-              onRun={run}
-            />
-          ))}
-
-          {!bloqueado && (
-            <button
-              type="button"
-              onClick={() => run(() => addGroup(composition.id))}
-              className="w-full rounded-xl border border-dashed border-border py-3 text-sm text-muted hover:border-accent hover:text-text"
-            >
-              + Agregar grupo
-            </button>
-          )}
-        </div>
-
-        <div className="w-64 shrink-0 space-y-4">
-          <DisarrayPanel confirmados={confirmados} lugares={lugares} />
-          <SharePanel
-            compositionId={composition.id}
-            slug={composition.share_slug}
-            visibility={composition.visibility}
-            formats={{}}
+      {/* Dos grupos por fila desde pantallas grandes; uno en el resto. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        {composition.groups.map((group) => (
+          <TarjetaGrupo
+            key={group.id}
+            group={group}
+            builds={builds}
+            roles={roles}
+            buildById={buildById}
+            bloqueado={bloqueado}
+            onRun={run}
           />
-        </div>
+        ))}
+
+        {!bloqueado && (
+          <button
+            type="button"
+            onClick={() => run(() => addGroup(composition.id))}
+            className="flex min-h-24 items-center justify-center gap-2 rounded-xl border border-dashed border-border text-sm text-muted transition-colors hover:border-accent hover:text-text"
+          >
+            <Plus size={16} aria-hidden />
+            Agregar grupo
+          </button>
+        )}
       </div>
 
       {vaciando && (
@@ -161,14 +147,11 @@ export function CompositionEditor({ composition, builds, roles }: Props) {
   );
 }
 
-// ─── Grupo ───────────────────────────────────────────────────────────────────
-
-function GroupCard({
+function TarjetaGrupo({
   group,
   builds,
   roles,
   buildById,
-  roleById,
   bloqueado,
   onRun,
 }: {
@@ -176,94 +159,87 @@ function GroupCard({
   builds: Build[];
   roles: Role[];
   buildById: Map<string, Build>;
-  roleById: Map<string, Role>;
   bloqueado: boolean;
   onRun: (fn: () => Promise<unknown>) => void;
 }) {
   const confirmados = group.slots.filter((s) => (s.player_name ?? "").trim() !== "").length;
 
   return (
-    <section className="rounded-xl border border-border bg-surface">
-      <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
+    <section className="flex flex-col rounded-xl border border-border bg-surface">
+      <header className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
         <input
           defaultValue={group.name ?? ""}
           disabled={bloqueado}
-          placeholder="Nombre del grupo"
+          placeholder="Grupo"
+          aria-label="Nombre del grupo"
           onBlur={(event) => onRun(() => updateGroup(group.id, { name: event.target.value }))}
-          className="w-36 rounded border border-transparent bg-transparent px-1 font-medium hover:border-border focus:border-border"
+          className="w-28 rounded border border-transparent bg-transparent px-1 py-0.5 font-medium hover:border-border focus:border-border"
         />
         {group.guild_name !== null && (
           <input
             defaultValue={group.guild_name}
             disabled={bloqueado}
             placeholder="Gremio"
+            aria-label="Gremio"
             onBlur={(event) =>
               onRun(() => updateGroup(group.id, { guild_name: event.target.value }))
             }
-            className="w-32 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-xs"
+            className="w-28 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-xs"
           />
         )}
-        <span className="text-xs text-muted">
-          {confirmados}/{group.slots.length} confirmados
+        <span className="text-xs tabular-nums text-muted">
+          {confirmados}/{group.slots.length}
         </span>
 
         {!bloqueado && (
           <button
             type="button"
             onClick={() => onRun(() => deleteGroup(group.id))}
-            className="ml-auto rounded px-2 py-1 text-xs text-muted hover:text-danger"
+            aria-label={`Borrar ${group.name ?? "grupo"}`}
+            className="ml-auto flex size-8 items-center justify-center rounded text-muted hover:text-danger"
           >
-            Borrar grupo
+            <Trash2 size={15} aria-hidden />
           </button>
         )}
       </header>
 
-      <ul className="divide-y divide-border">
+      <ul className="divide-y divide-border/70">
         {group.slots.map((slot) => {
           const build = slot.build_id ? buildById.get(slot.build_id) : undefined;
           return (
             <li
               key={slot.id}
-              className="flex flex-wrap items-center gap-2 px-3 py-2"
-              // El color de la build pinta la fila entera. Es el punto de todo
-              // el sistema de colores: reconocer de un vistazo quién lleva qué.
-              style={build?.color ? { background: `${build.color}22` } : undefined}
+              className="flex items-center gap-1.5 px-2 py-1"
+              // El color de la build pinta la fila: es lo que permite reconocer
+              // de un vistazo quién lleva qué sin leer nada.
+              style={build?.color ? { background: `${build.color}1f` } : undefined}
             >
               <button
                 type="button"
                 title={slot.is_leader ? "Líder del grupo" : "Marcar como líder"}
+                aria-label={slot.is_leader ? "Líder del grupo" : "Marcar como líder"}
+                aria-pressed={slot.is_leader}
                 disabled={bloqueado}
                 onClick={() => onRun(() => setLeader(group.id, slot.id))}
-                className={`w-6 text-center ${slot.is_leader ? "text-accent" : "text-border hover:text-muted"}`}
+                className={`flex size-7 shrink-0 items-center justify-center rounded ${
+                  slot.is_leader ? "text-accent" : "text-border hover:text-muted"
+                }`}
               >
-                ★
+                <Star size={14} fill={slot.is_leader ? "currentColor" : "none"} />
               </button>
 
-              <select
-                defaultValue={slot.role_id ?? ""}
-                disabled={bloqueado}
-                onChange={(event) =>
-                  onRun(() => updateSlot(slot.id, { role_id: event.target.value || null }))
-                }
-                className="w-32 rounded border border-border bg-surface-2 px-1.5 py-1 text-xs"
-              >
-                <option value="">Rol</option>
-                {roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name}
-                  </option>
-                ))}
-              </select>
+              <BuildPeek build={build} />
 
               <select
                 defaultValue={slot.build_id ?? ""}
                 disabled={bloqueado}
+                aria-label="Build"
                 onChange={(event) =>
                   onRun(() => updateSlot(slot.id, { build_id: event.target.value || null }))
                 }
-                className="w-40 rounded border border-border bg-surface-2 px-1.5 py-1 text-xs"
+                className="h-8 w-24 shrink-0 rounded border border-border bg-surface-2 px-1 text-xs sm:w-32"
               >
-                <option value="">Sin build</option>
+                <option value="">Build…</option>
                 {builds.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
@@ -271,24 +247,32 @@ function GroupCard({
                 ))}
               </select>
 
-              {build && (
-                <span className="flex gap-0.5">
-                  {(["mainhand", "offhand", "head", "armor", "shoes"] as const).map((s) =>
-                    build.items[s] ? (
-                      <ItemIcon key={s} item={build.items[s]} size={22} />
-                    ) : null,
-                  )}
-                </span>
-              )}
+              <select
+                defaultValue={slot.role_id ?? ""}
+                disabled={bloqueado}
+                aria-label="Rol"
+                onChange={(event) =>
+                  onRun(() => updateSlot(slot.id, { role_id: event.target.value || null }))
+                }
+                className="hidden h-8 w-24 shrink-0 rounded border border-border bg-surface-2 px-1 text-xs sm:block"
+              >
+                <option value="">Rol…</option>
+                {roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
+              </select>
 
               <input
                 defaultValue={slot.player_name ?? ""}
                 disabled={bloqueado}
-                placeholder="Nombre del jugador"
+                placeholder="Nombre"
+                aria-label="Nombre del jugador"
                 onBlur={(event) =>
                   onRun(() => updateSlot(slot.id, { player_name: event.target.value }))
                 }
-                className="min-w-0 flex-1 rounded border border-border bg-surface-2 px-2 py-1 text-xs"
+                className="h-8 min-w-0 flex-1 rounded border border-border bg-surface-2 px-2 text-xs"
               />
 
               {!bloqueado && (
@@ -296,9 +280,9 @@ function GroupCard({
                   type="button"
                   onClick={() => onRun(() => deleteSlot(slot.id))}
                   aria-label="Quitar persona"
-                  className="rounded px-1.5 text-muted hover:text-danger"
+                  className="flex size-7 shrink-0 items-center justify-center rounded text-muted hover:text-danger"
                 >
-                  ×
+                  <X size={14} aria-hidden />
                 </button>
               )}
             </li>
@@ -310,23 +294,21 @@ function GroupCard({
         <button
           type="button"
           onClick={() => onRun(() => addSlot(group.id))}
-          className="w-full rounded-b-xl px-4 py-2 text-left text-sm text-muted hover:bg-surface-2 hover:text-text"
+          className="flex h-10 items-center gap-2 rounded-b-xl px-3 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-text"
         >
-          + Agregar persona
+          <Plus size={15} aria-hidden />
+          Agregar persona
         </button>
       )}
     </section>
   );
 }
 
-// ─── Vaciar ──────────────────────────────────────────────────────────────────
-
 /**
  * Doble confirmación para vaciar.
  *
- * El segundo paso pide escribir el nombre de la composición. Un segundo
- * "¿estás seguro?" idéntico al primero se clickea en piloto automático;
- * escribir el nombre, no.
+ * El segundo paso pide escribir el nombre. Un segundo «¿estás seguro?» igual al
+ * primero se clickea en piloto automático; escribir el nombre, no.
  */
 function DialogoVaciar({
   nombre,
@@ -341,8 +323,13 @@ function DialogoVaciar({
   const [texto, setTexto] = useState("");
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-6">
-      <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Vaciar ${nombre}`}
+    >
+      <div className="w-full max-w-md rounded-xl border border-border bg-surface p-5">
         <h2 className="text-lg font-semibold">Vaciar «{nombre}»</h2>
 
         {paso === 1 ? (
@@ -353,23 +340,23 @@ function DialogoVaciar({
                 grupos, los lugares y el rol de cada uno.
               </p>
               <p>
-                <strong className="text-danger">Se borra</strong> la build y el nombre de
-                cada persona, y sus notas.
+                <strong className="text-danger">Se borra</strong> la build, el nombre y
+                las notas de cada persona.
               </p>
               <p className="text-muted">Esto no se puede deshacer.</p>
             </div>
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={onCancel}
-                className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-surface-2"
+                className="h-10 rounded-lg border border-border px-4 text-sm hover:bg-surface-2"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={() => setPaso(2)}
-                className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white"
+                className="h-10 rounded-lg bg-danger px-4 text-sm font-medium text-white"
               >
                 Continuar
               </button>
@@ -377,21 +364,22 @@ function DialogoVaciar({
           </>
         ) : (
           <>
-            <p className="mt-3 text-sm text-muted">
+            <label htmlFor="confirmar-vaciar" className="mt-3 block text-sm text-muted">
               Para confirmar, escribí el nombre de la composición.
-            </p>
+            </label>
             <input
+              id="confirmar-vaciar"
               autoFocus
               value={texto}
               onChange={(event) => setTexto(event.target.value)}
               placeholder={nombre}
-              className="mt-2 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm"
+              className="mt-2 h-11 w-full rounded-lg border border-border bg-surface-2 px-3 text-sm"
             />
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={onCancel}
-                className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-surface-2"
+                className="h-10 rounded-lg border border-border px-4 text-sm hover:bg-surface-2"
               >
                 Cancelar
               </button>
@@ -399,7 +387,7 @@ function DialogoVaciar({
                 type="button"
                 onClick={onConfirm}
                 disabled={texto.trim() !== nombre}
-                className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+                className="h-10 rounded-lg bg-danger px-4 text-sm font-medium text-white disabled:opacity-40"
               >
                 Vaciar
               </button>
@@ -413,14 +401,12 @@ function DialogoVaciar({
 
 function formatearFecha(iso: string, tz: string): string {
   try {
-    const fecha = new Intl.DateTimeFormat("es-AR", {
+    const texto = new Intl.DateTimeFormat("es-AR", {
       dateStyle: "long",
       timeStyle: "short",
       timeZone: tz,
     }).format(new Date(iso));
-    // Se muestra la zona de origen: una CTA a las 20:30 hora Argentina no es
-    // la misma hora para alguien que abre esto desde España.
-    return `${fecha} (${tz.split("/").pop()?.replace(/_/g, " ")})`;
+    return `${texto} (${tz.split("/").pop()?.replace(/_/g, " ")})`;
   } catch {
     return new Date(iso).toLocaleString("es-AR");
   }
