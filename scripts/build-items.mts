@@ -57,23 +57,6 @@ const SLOT_BY_TOKEN: Record<string, EquipmentSlot> = {
 };
 
 /**
- * Animales de granja que NO son monturas.
- *
- * Las monturas domadas viven bajo `FARM_..._GROWN` y no bajo `MOUNT_`, así que
- * hay que incluir esa familia — es donde está el garrapresta
- * (`T5_FARM_COUGAR_GROWN`), entre otras. Pero ahí también están el ganado y las
- * aves de corral, que no se montan.
- */
-const NO_SON_MONTURAS = new Set([
-  "CHICKEN",
-  "GOAT",
-  "GOOSE",
-  "SHEEP",
-  "PIG",
-  "COW",
-]);
-
-/**
  * Cosas que técnicamente ocupan un slot de equipo pero que nadie lleva a una
  * party, y que solo ensucian el buscador cuando estás armando una comp.
  *
@@ -196,13 +179,11 @@ async function main() {
       const resto = conTier[2];
       const token = resto.split("_")[0];
 
-      if (token === "FARM" && resto.endsWith("_GROWN")) {
-        // Monturas domadas: `T5_FARM_COUGAR_GROWN` es el garrapresta.
-        const animal = resto.replace(/^FARM_/, "").replace(/_GROWN$/, "").split("_")[0];
-        if (!NO_SON_MONTURAS.has(animal)) slot = "mount";
-      } else {
-        slot = SLOT_BY_TOKEN[token];
-      }
+      // Los `FARM_..._GROWN` son animales domados, y NO se montan: son el
+      // ingrediente con el que después se craftea la montura. La montura de
+      // verdad vive bajo `MOUNT_` — el garrapresta es
+      // `T5_MOUNT_COUGAR_KEEPER@1`, no `T5_FARM_COUGAR_GROWN`.
+      slot = SLOT_BY_TOKEN[token];
     } else if (nombreBase.startsWith("UNIQUE_MOUNT_")) {
       // Monturas de evento y de recompensa. No tienen tier en el nombre;
       // se les asigna 0 para que queden agrupadas aparte al ordenar.
