@@ -2,11 +2,15 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AuthForm } from "@/components/auth-form";
+import { FaltaConfigurar } from "@/components/falta-configurar";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Crear cuenta — AlbionPM" };
 
 export default async function RegistroPage() {
+  if (!isSupabaseConfigured()) return <FaltaConfigurar />;
+
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
 

@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 
+import { FaltaConfigurar } from "@/components/falta-configurar";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -10,6 +12,14 @@ import { createClient } from "@/lib/supabase/server";
  * hay que validar.
  */
 export default async function AppLayout({ children }: LayoutProps<"/app">) {
+  if (!isSupabaseConfigured()) {
+    return (
+      <div className="p-10">
+        <FaltaConfigurar />
+      </div>
+    );
+  }
+
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
 
