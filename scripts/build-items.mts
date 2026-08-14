@@ -117,6 +117,15 @@ export type CatalogItem = {
   /** Solo en `mainhand`: si ocupa las dos manos y bloquea el off-hand */
   twoHanded?: true;
   /**
+   * Encantamiento que el item trae de fábrica y no se puede cambiar.
+   *
+   * Hay items que SOLO existen encantados: el garrapresta es
+   * `T5_MOUNT_COUGAR_KEEPER@1` y no hay un `@0` ni un `@2`. Para esos, el
+   * nivel es parte de su identidad —se muestran como «5.1»— y no se ofrece
+   * subirlo ni bajarlo.
+   */
+  fixedEnch?: number;
+  /**
    * Si admite encantamiento.
    *
    * No se adivina por slot: se toma del propio volcado del juego, que incluye
@@ -145,8 +154,12 @@ async function main() {
   // Todo lo que se puede encantar aparece en el volcado también con `@1`.
   // Es la fuente autoritativa: cualquier otra regla sería una suposición.
   const encantables = new Set<string>();
+  const todos = new Set<string>();
+
   for (const entry of raw) {
-    const match = /^(.+)@1$/.exec(entry.UniqueName ?? "");
+    const nombre = entry.UniqueName ?? "";
+    todos.add(nombre);
+    const match = /^(.+)@1$/.exec(nombre);
     if (match) encantables.add(match[1]);
   }
 
@@ -157,14 +170,26 @@ async function main() {
     const uniqueName = entry.UniqueName;
     if (!uniqueName) continue;
 
-    // Las variantes encantadas (`@1`…`@4`) son el mismo item: el encantamiento
-    // se guarda aparte en la build, no como items distintos.
-    if (uniqueName.includes("@")) continue;
+    // Las variantes encantadas suelen ser el mismo item —el encantamiento se
+    // guarda aparte en la build—, PERO hay items que solo existen encantados:
+    // el garrapresta es `T5_MOUNT_COUGAR_KEEPER@1` y no hay una versión sin
+    // encantar. Descartar toda entrada con `@` los perdía a todos.
+    let fixedEnch = 0;
+    let nombreBase = uniqueName;
+
+    const conArroba = /^(.+)@(\d)$/.exec(uniqueName);
+    if (conArroba) {
+      // Si el item también existe sin encantar, esto es una variante y se
+      // descarta. Si no existe, el encantamiento es parte de su identidad.
+      if (todos.has(conArroba[1])) continue;
+      nombreBase = conArroba[1];
+      fixedEnch = Number(conArroba[2]);
+    }
 
     let tier: number;
     let slot: EquipmentSlot | undefined;
 
-    const conTier = /^T(\d)_(.+)$/.exec(uniqueName);
+    const conTier = /^T(\d)_(.+)$/.exec(nombreBase);
 
     if (conTier) {
       tier = Number(conTier[1]);
@@ -178,7 +203,7 @@ async function main() {
       } else {
         slot = SLOT_BY_TOKEN[token];
       }
-    } else if (uniqueName.startsWith("UNIQUE_MOUNT_")) {
+    } else if (nombreBase.startsWith("UNIQUE_MOUNT_")) {
       // Monturas de evento y de recompensa. No tienen tier en el nombre;
       // se les asigna 0 para que queden agrupadas aparte al ordenar.
       tier = 0;
@@ -190,7 +215,7 @@ async function main() {
     if (!slot) continue;
 
     // Herramientas, cañas de pescar y ropa de profesión.
-    if (EXCLUIR.test(uniqueName)) {
+    if (EXCLUIR.test(nombreBase)) {
       descartados++;
       continue;
     }
@@ -216,7 +241,8 @@ async function main() {
     };
 
     if (conTier && conTier[2].startsWith("2H_")) item.twoHanded = true;
-    if (encantables.has(uniqueName)) item.ench = true;
+    if (fixedEnch > 0) item.fixedEnch = fixedEnch;
+    else if (encantables.has(uniqueName)) item.ench = true;
 
     items.push(item);
   }

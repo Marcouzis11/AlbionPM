@@ -21,7 +21,18 @@ type SlotItem = {
   twoHanded?: true;
   /** Si admite encantamiento. Sale del volcado del juego, no de una regla. */
   ench?: true;
+  /**
+   * Encantamiento de fábrica, para los items que solo existen encantados: el
+   * garrapresta es 5.1 y no hay un 5.0 ni un 5.2. Se muestra, no se cambia.
+   */
+  fixedEnch?: number;
 };
+
+/** «T8» o «T5.1» según corresponda. */
+function etiquetaTier(item: { tier: number; fixedEnch?: number }): string {
+  if (item.tier === 0) return "Evento";
+  return item.fixedEnch ? `T${item.tier}.${item.fixedEnch}` : `T${item.tier}`;
+}
 
 /** Una vez descargado, el catálogo de un slot no se vuelve a pedir. */
 const cache = new Map<EquipmentSlot, Promise<SlotItem[]>>();
@@ -129,7 +140,11 @@ export function ItemPicker({
                 {seleccionado?.es ?? value.id}
               </span>
               <span className="block text-[11px] text-muted">
-                {value.quality && value.quality > 1 ? CALIDADES[value.quality] : "\u00a0"}
+                {seleccionado?.fixedEnch
+                  ? `${etiquetaTier(seleccionado)} · viene encantado`
+                  : value.quality && value.quality > 1
+                    ? CALIDADES[value.quality]
+                    : "\u00a0"}
               </span>
             </span>
           </>
@@ -232,7 +247,7 @@ export function ItemPicker({
                     <span className="block truncate text-xs">{item.es}</span>
                     <span className="block truncate text-[11px] text-muted">{item.en}</span>
                   </span>
-                  <span className="text-[11px] text-muted">T{item.tier}</span>
+                  <span className="text-[11px] text-muted">{etiquetaTier(item)}</span>
                 </button>
               </li>
             ))}

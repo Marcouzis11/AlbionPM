@@ -55,6 +55,10 @@ type Item = {
   slot: string;
   tier: number;
   es: string;
+  /** Si admite encantamiento variable. */
+  ench?: true;
+  /** Encantamiento de fábrica; el id ya lo lleva incluido. */
+  fixedEnch?: number;
 };
 
 /** Slots de equipo, que solo se bajan en T7 y T8. */
@@ -75,6 +79,20 @@ function objetivos(items: Item[]): string[] {
       : COMPLETOS.has(item.slot);
 
     if (!incluir) continue;
+
+    // Los items con encantamiento de fábrica ya lo llevan en el id (el
+    // garrapresta es `..._COUGAR_KEEPER@1`). Agregarles otro nivel produciría
+    // `@1@1`, que el servicio rechaza.
+    if (item.fixedEnch) {
+      ids.push(item.id);
+      continue;
+    }
+
+    // Y los que no se encantan tienen un solo ícono.
+    if (!item.ench) {
+      ids.push(item.id);
+      continue;
+    }
 
     for (const ench of ENCANTAMIENTOS) {
       ids.push(ench === 0 ? item.id : `${item.id}@${ench}`);
