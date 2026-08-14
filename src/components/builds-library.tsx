@@ -39,7 +39,7 @@ import {
   type BuildFolder,
   type Role,
 } from "@/lib/builds-shared";
-import { bordeDeFila, tinteDeFila } from "@/lib/color";
+import { textoSobre } from "@/lib/color";
 
 /**
  * Biblioteca de builds.
@@ -346,8 +346,8 @@ export function BuildsLibrary({
   const deLaSeleccionada = buildsDe(seleccionada);
 
   return (
-    <div className="space-y-4">
-      <div>
+    <div className="flex h-full flex-col gap-4">
+      <div className="shrink-0">
         <h1 className="text-2xl font-semibold tracking-tight">Builds</h1>
         <p className="mt-1 text-sm text-muted">
           El color que le pongas a una build pinta la fila de esa persona en todas las
@@ -355,7 +355,7 @@ export function BuildsLibrary({
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -416,15 +416,34 @@ export function BuildsLibrary({
         resultados.length === 0 ? (
           <Vacio>Ninguna build coincide con el filtro.</Vacio>
         ) : (
-          grillaDeBuilds(resultados, true)
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {grillaDeBuilds(resultados, true)}
+          </div>
         )
       ) : (
         // Tres cuartos para las builds y un cuarto para el árbol. Las carpetas
         // se tocan de vez en cuando; las builds se miran todo el tiempo, así
         // que el ancho va donde está el trabajo.
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,1fr)] lg:items-start">
-          <div className="min-w-0 space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
+        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,3fr)]">
+          <div className="min-h-0 overflow-y-auto rounded-xl border border-border bg-surface p-2">
+            <FilaRaiz
+              seleccionada={seleccionada === null}
+              cuantas={buildsDe(null).length}
+              onSeleccionar={() => setSeleccionada(null)}
+              acepta={(dato) =>
+                (dato.tipo === "build" && dato.origen !== null) ||
+                (dato.tipo === "carpeta" && dato.origen !== null)
+              }
+              onSoltar={(dato) => {
+                if (dato.tipo === "build") correr(() => moveBuild(dato.id, null));
+                if (dato.tipo === "carpeta") correr(() => moveFolder(dato.id, null));
+              }}
+            />
+            {rama(null, 0)}
+          </div>
+
+          <div className="flex min-h-0 min-w-0 flex-col gap-3">
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
               <h2 className="text-lg font-medium">
                 {seleccionada ? folderById.get(seleccionada)?.name : "Fuera de toda carpeta"}
               </h2>
@@ -444,7 +463,9 @@ export function BuildsLibrary({
             </div>
 
             {deLaSeleccionada.length > 0 ? (
-              grillaDeBuilds(deLaSeleccionada, false)
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                {grillaDeBuilds(deLaSeleccionada, false)}
+              </div>
             ) : (
               <Vacio>
                 {seleccionada
@@ -454,22 +475,6 @@ export function BuildsLibrary({
             )}
           </div>
 
-          <div className="rounded-xl border border-border bg-surface p-2 lg:sticky lg:top-2">
-            <FilaRaiz
-              seleccionada={seleccionada === null}
-              cuantas={buildsDe(null).length}
-              onSeleccionar={() => setSeleccionada(null)}
-              acepta={(dato) =>
-                (dato.tipo === "build" && dato.origen !== null) ||
-                (dato.tipo === "carpeta" && dato.origen !== null)
-              }
-              onSoltar={(dato) => {
-                if (dato.tipo === "build") correr(() => moveBuild(dato.id, null));
-                if (dato.tipo === "carpeta") correr(() => moveFolder(dato.id, null));
-              }}
-            />
-            {rama(null, 0)}
-          </div>
         </div>
       )}
 
@@ -725,40 +730,50 @@ function TarjetaBuild({
       ? `${build.notes.slice(0, LIMITE_NOTA).trimEnd()}…`
       : build.notes;
 
+  // El color se pinta lleno, sin mezclar con el fondo. Mezclado se fundía con
+  // la página y dejaba de servir para reconocer la build de lejos, que es todo
+  // lo que este color tiene que hacer. Como puede ser cualquiera, el texto de
+  // encima se elige por contraste y no a mano.
+  const conColor = build.color !== null;
+  const estilo = conColor
+    ? { background: build.color!, color: textoSobre(build.color!) }
+    : undefined;
+
   return (
     <div
       {...zona.props}
       {...propsDeArrastre({ tipo: "build", id: build.id, origen: build.folder_id })}
+      style={estilo}
       className={`flex cursor-grab flex-col gap-2 rounded-xl border p-2.5 transition-shadow active:cursor-grabbing ${
-        zona.encima ? "ring-2 ring-accent" : ""
-      }`}
-      style={
-        build.color
-          ? { background: tinteDeFila(build.color), borderColor: bordeDeFila(build.color) }
-          : { borderColor: "var(--border)" }
-      }
+        conColor ? "border-current/25" : "border-border bg-surface"
+      } ${zona.encima ? "ring-2 ring-accent" : ""}`}
     >
       <div className="flex gap-3">
         {/* El equipo acomodado como el panel de personaje del juego. Quien
             juega reconoce la pieza por su lugar, sin leer ninguna etiqueta, y
-            los huecos vacíos del panel original se respetan por lo mismo. */}
+            los huecos vacíos del panel original se respetan por lo mismo.
+
+            Los íconos no llevan recuadro: el ícono del juego YA viene recortado
+            con su propio marco, así que dibujarle otro alrededor era ponerle un
+            marco a un marco. */}
         <div className="grid w-[8.5rem] shrink-0 grid-cols-3 gap-1">
           {DISPOSICION_EQUIPO.flat().map((slot, indice) =>
             slot === null ? (
               <span key={`hueco-${indice}`} aria-hidden />
+            ) : build.items[slot] ? (
+              <ItemIcon
+                key={slot}
+                item={build.items[slot]}
+                size={64}
+                className="aspect-square w-full"
+              />
             ) : (
               <span
                 key={slot}
                 title={SIGLAS[slot]}
-                className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-surface-2"
+                className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-current/30 text-[9px] leading-none opacity-60"
               >
-                {build.items[slot] ? (
-                  <ItemIcon item={build.items[slot]} size={64} className="size-full" />
-                ) : (
-                  <span className="text-[9px] leading-none text-muted">
-                    {SIGLAS[slot]}
-                  </span>
-                )}
+                {SIGLAS[slot]}
               </span>
             ),
           )}
@@ -769,7 +784,7 @@ function TarjetaBuild({
             <p className="truncate font-medium" title={build.name}>
               {build.name}
             </p>
-            <p className="truncate text-xs text-muted">
+            <p className={`truncate text-xs ${conColor ? "opacity-75" : "text-muted"}`}>
               {rolNombre ?? "Sin rol"}
               {carpetaNombre ? ` · ${carpetaNombre}` : ""}
             </p>
@@ -780,7 +795,11 @@ function TarjetaBuild({
               {build.tags.map((tag) => (
                 <li
                   key={tag}
-                  className="rounded-lg bg-surface-2 px-1.5 py-0.5 text-[11px] text-muted"
+                  className={`rounded-lg px-1.5 py-0.5 text-[11px] ${
+                    conColor
+                      ? "border border-current/35 opacity-90"
+                      : "bg-surface-2 text-muted"
+                  }`}
                 >
                   {tag}
                 </li>
@@ -788,7 +807,11 @@ function TarjetaBuild({
             </ul>
           )}
 
-          {nota && <p className="text-xs leading-snug text-muted">{nota}</p>}
+          {nota && (
+            <p className={`text-xs leading-snug ${conColor ? "opacity-80" : "text-muted"}`}>
+              {nota}
+            </p>
+          )}
         </div>
       </div>
 
@@ -796,7 +819,9 @@ function TarjetaBuild({
         <button
           type="button"
           onClick={onEditar}
-          className="h-8 flex-1 rounded-lg border border-border/70 text-sm transition-colors hover:bg-surface-2"
+          className={`h-8 flex-1 rounded-lg border text-sm transition-colors ${
+            conColor ? "border-current/35 hover:bg-current/10" : "border-border/70 hover:bg-surface-2"
+          }`}
         >
           Editar
         </button>
@@ -809,7 +834,9 @@ function TarjetaBuild({
           type="button"
           onClick={onBorrar}
           aria-label={`Borrar ${build.name}`}
-          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:text-danger"
+          className={`flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
+            conColor ? "opacity-70 hover:opacity-100" : "text-muted hover:text-danger"
+          }`}
         >
           <Trash2 size={14} aria-hidden />
         </button>

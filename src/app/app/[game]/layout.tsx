@@ -36,8 +36,12 @@ export default async function GameLayout({
     <div className="flex h-dvh flex-col overflow-hidden">
       <TopBar game={game} games={games} email={data.user?.email} theme={theme} />
 
-      <main className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[110rem] px-4 py-6 sm:px-6 2xl:px-8">
+      {/* El scroll NO vive acá. Las pantallas de dos columnas necesitan que
+          cada columna se desplace por su cuenta, y eso solo se puede si el
+          armazón les da un alto definido en vez de crecer con el contenido.
+          Cada pantalla se encarga de la suya. */}
+      <main className="min-h-0 flex-1 overflow-hidden">
+        <div className="mx-auto h-full w-full max-w-[110rem] px-4 py-6 sm:px-6 2xl:px-8">
           {children}
         </div>
       </main>

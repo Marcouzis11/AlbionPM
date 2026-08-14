@@ -130,7 +130,7 @@ export function ItemIcon({
       decoding="async"
       draggable={false}
       onError={onError}
-      className={className}
+      className={`object-contain ${className ?? ""}`}
       style={{ width: size, height: size }}
     />
   );

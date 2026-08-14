@@ -158,8 +158,8 @@ export function PartyMaker({
   });
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="flex h-full flex-col gap-4">
+      <div className="flex shrink-0 flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Party Maker</h1>
           <p className="mt-1 text-sm text-muted">

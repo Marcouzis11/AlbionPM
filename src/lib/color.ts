@@ -160,3 +160,24 @@ export function tinteDeFila(hex: string): string {
 export function bordeDeFila(hex: string): string {
   return `color-mix(in oklab, ${hex} var(--fuerza-borde-fila), var(--base-fila))`;
 }
+
+/**
+ * Blanco o negro, el que se lea mejor encima de ese color.
+ *
+ * Hace falta porque el color de una build se pinta lleno, sin mezclar con el
+ * fondo: un amarillo y un azul marino son los dos colores válidos, y el mismo
+ * texto encima funciona en uno y desaparece en el otro. La fórmula es la
+ * luminancia relativa de WCAG, que es la que define el contraste real y no el
+ * brillo aparente.
+ */
+export function textoSobre(hex: string): string {
+  const { r, g, b } = hexToRgb(hex);
+  const canal = (c: number) => {
+    const n = c / 255;
+    return n <= 0.03928 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4;
+  };
+  const luz = 0.2126 * canal(r) + 0.7152 * canal(g) + 0.0722 * canal(b);
+  // 0.45 y no 0.5: el umbral donde el blanco y el negro empatan en contraste
+  // está por debajo del medio, porque el ojo pesa más las luces.
+  return luz > 0.45 ? "#101013" : "#ffffff";
+}

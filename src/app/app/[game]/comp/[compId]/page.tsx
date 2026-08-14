@@ -23,7 +23,7 @@ export default async function CompositionPage({
   if (!composition) notFound();
 
   return (
-    <div className="space-y-4">
+    <div className="h-full space-y-4 overflow-y-auto">
       <Link
         href={`/app/${slug}`}
         className="text-sm text-muted hover:text-text"

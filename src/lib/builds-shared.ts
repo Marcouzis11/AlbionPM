@@ -19,8 +19,8 @@ import type { BuildItem, EquipmentSlot } from "@/lib/items";
 export const DISPOSICION_EQUIPO: (EquipmentSlot | null)[][] = [
   [null, "head", "cape"],
   ["mainhand", "armor", "offhand"],
-  ["mount", "shoes", "potion"],
-  [null, null, "food"],
+  ["potion", "shoes", "food"],
+  [null, "mount", null],
 ];
 
 export type BuildFolder = {

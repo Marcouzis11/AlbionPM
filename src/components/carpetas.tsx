@@ -77,8 +77,11 @@ export function GrillaCarpetas({
     // Dos columnas desde `lg`: las carpetas a la izquierda, angostas, y el
     // panel ocupando todo el resto. Abajo de `lg` se apilan, porque en un
     // celular dos columnas dejarían las dos inservibles.
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:items-start">
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-2">
+    // `min-h-0` en las dos columnas es lo que permite que scrolleen por su
+    // cuenta: sin eso una celda de grilla crece con su contenido en vez de
+    // recortarlo, y el scroll nunca aparece.
+    <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
+      <ul className="grid min-h-0 grid-cols-2 content-start gap-3 overflow-y-auto sm:grid-cols-3 lg:grid-cols-2">
         {carpetas.map((carpeta) => (
           <li key={carpeta.id}>
             <Ficha
@@ -94,7 +97,7 @@ export function GrillaCarpetas({
 
       {/* El panel se queda quieto en su columna. Elegir otra carpeta cambia lo
           que hay adentro y nada más: las carpetas no se mueven de lugar. */}
-      <div className="min-w-0">
+      <div className="flex min-h-0 min-w-0 flex-col">
         {visible ? (
           <CuerpoPanel
             key={visible.id}
@@ -102,7 +105,7 @@ export function GrillaCarpetas({
             onCerrar={() => setAbierta(null)}
           />
         ) : (
-          <div className="flex min-h-64 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border p-10 text-center">
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border p-10 text-center">
             <Folder size={30} className="text-muted" aria-hidden />
             <p className="font-medium">{vacio.titulo}</p>
             <p className="max-w-sm text-sm text-muted">{vacio.detalle}</p>
@@ -202,10 +205,10 @@ function CuerpoPanel({
 
   return (
     <div
-      className="rounded-xl border bg-surface"
+      className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-surface"
       style={{ borderColor: `color-mix(in srgb, ${color} 45%, var(--border))` }}
     >
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <span style={{ color }}>
           <FolderOpen size={16} aria-hidden />
         </span>
@@ -248,7 +251,7 @@ function CuerpoPanel({
         </button>
       </div>
 
-      <div className="p-3">{carpeta.panel()}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">{carpeta.panel()}</div>
     </div>
   );
 }

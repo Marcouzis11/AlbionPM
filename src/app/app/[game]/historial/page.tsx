@@ -36,7 +36,7 @@ export default async function HistorialPage({
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto h-full max-w-3xl space-y-6 overflow-y-auto">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Historial</h1>
         <p className="mt-1 text-sm text-muted">

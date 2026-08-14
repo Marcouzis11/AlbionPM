@@ -3,19 +3,13 @@
 /* ============================================================================
    Paleta
    ----------------------------------------------------------------------------
-   Inspirada en Albion Online —medieval oscuro, cuero, pergamino, oro— pero sin
-   imitarlo literalmente: esta herramienta se usa apurado y desde el celular,
-   así que cuando la decoración pelea con la legibilidad, gana la legibilidad.
+   Base neutra, acento dorado. El gris no es una ausencia de decisión: los
+   colores que define cada usuario pintan carpetas y builds enteras, y sobre un
+   fondo con tinte propio esos colores se contaminan y se apagan. Un grafito
+   neutro los deja verse como son.
 
-   Dos criterios que explican las elecciones:
-
-   - Los fondos oscuros son carbón CÁLIDO, no azulado. Los íconos del juego
-     vienen recortados sobre fondo oscuro y así se integran en vez de verse
-     pegoteados.
-
-   - La base es deliberadamente sobria. Los colores de build que define cada
-     usuario pintan filas enteras, y una interfaz ya saturada volvería inútil
-     ese sistema de colores, que es funcional y no decorativo.
+   El oro se queda porque es lo único que da identidad de Albion sin costar
+   legibilidad, y porque no compite con ninguno de los ocho colores de carpeta.
 
    Ningún componente escribe un color a mano: todos salen de acá.
    ========================================================================== */
@@ -23,31 +17,31 @@
 /* Los valores se declaran UNA sola vez. Los temas se limitan a elegir cuál
    de los dos juegos se usa, más abajo. */
 :root {
-  /* Claro: pergamino */
-  --l-bg: #f4efe4;
-  --l-surface: #fffdf8;
-  --l-surface-2: #eae1d0;
-  --l-border: #d5c9b2;
-  --l-text: #221c14;
-  --l-muted: #6a5f50;
-  --l-accent: #9c7618;
-  --l-accent-hover: #86640f;
-  --l-accent-fg: #fffaf0;
-  --l-danger: #a93226;
-  --l-success: #3d7c40;
+  /* Claro: papel neutro */
+  --l-bg: #f1f1f2;
+  --l-surface: #ffffff;
+  --l-surface-2: #e7e7ea;
+  --l-border: #d2d2d7;
+  --l-text: #17171a;
+  --l-muted: #5d5d66;
+  --l-accent: #8a6a10;
+  --l-accent-hover: #6f5509;
+  --l-accent-fg: #fffdf5;
+  --l-danger: #b3261e;
+  --l-success: #256d34;
 
-  /* Oscuro: carbón y oro */
-  --d-bg: #16130f;
-  --d-surface: #1f1b16;
-  --d-surface-2: #2a241d;
-  --d-border: #3a322a;
-  --d-text: #f0e9df;
-  --d-muted: #a79b8b;
-  --d-accent: #d4a94a;
-  --d-accent-hover: #e5bc5e;
-  --d-accent-fg: #1a1509;
-  --d-danger: #d9544a;
-  --d-success: #5aa85e;
+  /* Oscuro: grafito */
+  --d-bg: #131316;
+  --d-surface: #1b1b1f;
+  --d-surface-2: #26262b;
+  --d-border: #35353c;
+  --d-text: #ededf0;
+  --d-muted: #a1a1aa;
+  --d-accent: #e2b74e;
+  --d-accent-hover: #f0c964;
+  --d-accent-fg: #17140a;
+  --d-danger: #f0625a;
+  --d-success: #5cc46a;
 }
 
 /* Un tema es solo una asignación. Definirlos así evita el error clásico de
