@@ -1,18 +1,33 @@
 "use client";
 
+import {
+  Calculator as CalculatorIcon,
+  ChevronsLeft,
+  ChevronsRight,
+  History,
+  Plus,
+  Shirt,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 
 import { createContent, type ContentState } from "@/app/actions/contents";
+import { setSidebarMode } from "@/app/actions/sidebar";
 import { Calculator } from "@/components/calculator";
 import type { Content, Game } from "@/lib/data/contents";
+import { SIDEBAR_WIDTH, type SidebarMode } from "@/lib/sidebar";
 
 /**
  * Barra lateral: el mapa de toda la aplicación.
  *
- * Tres secciones, como se definió: Party Maker (con los contenidos que crea
- * el usuario), Builds y Calculadora.
+ * Dos modos. En **amplio** se lee el nombre de cada cosa. En **fino** quedan
+ * solo los íconos, y ahí el detalle que hace que funcione: los contenidos se
+ * identifican por el color que vos mismo les pusiste, no por un ícono genérico
+ * repetido. La navegación termina siendo tuya y no de la aplicación.
+ *
+ * Ocupa siempre el alto de la pantalla y no depende de lo que haya a la
+ * derecha: el contenido scrollea en su propio panel.
  */
 
 const EMPTY: ContentState = {};
@@ -21,159 +36,268 @@ type Props = {
   game: Game;
   games: Game[];
   contents: Content[];
+  initialMode: SidebarMode;
 };
 
-export function Sidebar({ game, games, contents }: Props) {
+export function Sidebar({ game, games, contents, initialMode }: Props) {
   const pathname = usePathname();
+  const [modo, setModo] = useState<SidebarMode>(initialMode);
   const [creating, setCreating] = useState(false);
-  // Vive acá porque la barra lateral está en el layout: así el panel y lo que
-  // llevabas sumado sobreviven a navegar entre composiciones.
+  // Vive acá porque la barra está en el layout: lo que llevabas sumado
+  // sobrevive a navegar entre composiciones.
   const [calcAbierta, setCalcAbierta] = useState(false);
   const [state, action, pending] = useActionState(createContent, EMPTY);
+  const [, startTransition] = useTransition();
 
+  const fino = modo === "thin";
   const base = `/app/${game.slug}`;
 
+  function alternar() {
+    const siguiente: SidebarMode = fino ? "wide" : "thin";
+    setModo(siguiente);
+    if (siguiente === "wide") setCreating(false);
+    startTransition(() => void setSidebarMode(siguiente));
+  }
+
   return (
-    <nav className="flex w-60 shrink-0 flex-col gap-6 border-r border-border bg-surface p-4">
-      <div>
-        <Link href="/" className="text-lg font-semibold tracking-tight">
-          Albion<span className="text-accent">PM</span>
+    <nav
+      aria-label="Navegación principal"
+      style={{ width: SIDEBAR_WIDTH[modo] }}
+      className="sticky top-0 flex h-dvh shrink-0 flex-col border-r border-border bg-surface transition-[width] duration-200 motion-reduce:transition-none"
+    >
+      <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-3">
+        <Link
+          href="/"
+          title="AlbionPM"
+          className="min-w-0 truncate text-lg font-semibold tracking-tight"
+        >
+          {fino ? (
+            <span className="text-accent">A</span>
+          ) : (
+            <>
+              Albion<span className="text-accent">PM</span>
+            </>
+          )}
         </Link>
       </div>
 
-      {/* Selector de juego. Hoy hay uno solo, pero el selector existe de verdad:
-          agregarlo ahora es barato y retrofitearlo, carísimo. */}
-      <label className="block">
-        <span className="sr-only">Juego</span>
-        <select
-          value={game.slug}
-          onChange={(event) => {
-            window.location.href = `/app/${event.target.value}`;
-          }}
-          className="w-full rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm"
-        >
-          {games.map((option) => (
-            <option key={option.id} value={option.slug}>
-              {option.name}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <section className="flex-1 space-y-1">
-        <h2 className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
-          Party Maker
-        </h2>
-
-        {contents.length === 0 && !creating && (
-          <p className="px-2 pb-2 text-xs leading-relaxed text-muted">
-            Creá tu primer contenido: Gankeo, Castillo, CTA, lo que uses.
-          </p>
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-3">
+        {!fino && (
+          <div className="px-3 pb-3">
+            <label className="block">
+              <span className="sr-only">Juego</span>
+              <select
+                value={game.slug}
+                onChange={(event) => {
+                  window.location.href = `/app/${event.target.value}`;
+                }}
+                className="h-8 w-full rounded-lg border border-border bg-surface-2 px-2 text-sm"
+              >
+                {games.map((option) => (
+                  <option key={option.id} value={option.slug}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         )}
 
-        <ul className="space-y-0.5">
+        <Seccion titulo="Party Maker" fino={fino} />
+
+        <ul className="space-y-0.5 px-2">
           {contents.map((content) => {
             const href = `${base}/c/${content.id}`;
-            const active = pathname === href;
             return (
               <li key={content.id}>
-                <Link
+                <Fila
                   href={href}
-                  className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
-                    active ? "bg-surface-2 text-text" : "text-muted hover:bg-surface-2"
-                  }`}
-                >
-                  <span
-                    aria-hidden
-                    className="size-2.5 shrink-0 rounded-full"
-                    style={{ background: content.color ?? "var(--muted)" }}
-                  />
-                  <span className="truncate">{content.name}</span>
-                </Link>
+                  activo={pathname === href}
+                  fino={fino}
+                  etiqueta={content.name}
+                  icono={
+                    // El color del contenido ES el ícono. En modo fino, un
+                    // disco de color se reconoce de un vistazo; nueve íconos
+                    // grises iguales, no.
+                    <span
+                      aria-hidden
+                      className="size-3 rounded-full ring-2 ring-inset ring-black/20"
+                      style={{ background: content.color ?? "var(--muted)" }}
+                    />
+                  }
+                />
               </li>
             );
           })}
         </ul>
 
-        {creating ? (
-          <form
-            action={action}
-            onSubmit={() => setCreating(false)}
-            className="px-1 pt-1"
-          >
+        {creating && !fino ? (
+          <form action={action} onSubmit={() => setCreating(false)} className="px-3 pt-1">
             <input type="hidden" name="gameId" value={game.id} />
             <input
               name="name"
               autoFocus
-              placeholder="Nombre del contenido"
+              placeholder="Gankeo, CTA, Castillo…"
               maxLength={60}
+              onKeyDown={(event) => event.key === "Escape" && setCreating(false)}
               onBlur={(event) => {
                 if (!event.currentTarget.value.trim()) setCreating(false);
               }}
-              className="w-full rounded-md border border-border bg-surface-2 px-2 py-1.5 text-sm"
+              className="h-8 w-full rounded-md border border-border bg-surface-2 px-2 text-sm"
             />
-            {state.error && (
-              <p className="pt-1 text-xs text-danger">{state.error}</p>
-            )}
+            {state.error && <p className="pt-1 text-xs text-danger">{state.error}</p>}
             <p className="pt-1 text-[11px] text-muted">
-              {pending ? "Creando…" : "Enter para crear, Esc para cancelar"}
+              {pending ? "Creando…" : "Enter para crear"}
             </p>
           </form>
         ) : (
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className="w-full rounded-md px-2 py-1.5 text-left text-sm text-muted transition-colors hover:bg-surface-2 hover:text-text"
-          >
-            + Nuevo contenido
-          </button>
+          <div className="px-2 pt-0.5">
+            <Fila
+              onClick={() => {
+                if (fino) alternar();
+                setCreating(true);
+              }}
+              fino={fino}
+              etiqueta="Nuevo contenido"
+              icono={<Plus size={16} />}
+              tenue
+            />
+          </div>
         )}
-      </section>
 
-      <section className="space-y-1 border-t border-border pt-4">
-        <SidebarLink href={`${base}/builds`} active={pathname.startsWith(`${base}/builds`)}>
-          Builds
-        </SidebarLink>
-        <SidebarLink
-          href={`${base}/historial`}
-          active={pathname.startsWith(`${base}/historial`)}
-        >
-          Historial
-        </SidebarLink>
+        <div className="my-3 border-t border-border" />
 
-        <button
-          type="button"
-          onClick={() => setCalcAbierta((v) => !v)}
-          className={`block w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors ${
-            calcAbierta ? "bg-surface-2 text-text" : "text-muted hover:bg-surface-2 hover:text-text"
-          }`}
-        >
-          Calculadora
-        </button>
-      </section>
+        <ul className="space-y-0.5 px-2">
+          <li>
+            <Fila
+              href={`${base}/builds`}
+              activo={pathname.startsWith(`${base}/builds`)}
+              fino={fino}
+              etiqueta="Builds"
+              icono={<Shirt size={16} />}
+            />
+          </li>
+          <li>
+            <Fila
+              href={`${base}/historial`}
+              activo={pathname.startsWith(`${base}/historial`)}
+              fino={fino}
+              etiqueta="Historial"
+              icono={<History size={16} />}
+            />
+          </li>
+          <li>
+            <Fila
+              onClick={() => setCalcAbierta((v) => !v)}
+              activo={calcAbierta}
+              fino={fino}
+              etiqueta="Calculadora"
+              icono={<CalculatorIcon size={16} />}
+            />
+          </li>
+        </ul>
+      </div>
+
+      <button
+        type="button"
+        onClick={alternar}
+        aria-label={fino ? "Ampliar la barra lateral" : "Achicar la barra lateral"}
+        aria-expanded={!fino}
+        className="flex h-10 shrink-0 items-center justify-center gap-2 border-t border-border text-muted transition-colors hover:bg-surface-2 hover:text-text"
+      >
+        {fino ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
+        {!fino && <span className="text-xs">Achicar</span>}
+      </button>
 
       {calcAbierta && <Calculator onClose={() => setCalcAbierta(false)} />}
     </nav>
   );
 }
 
-function SidebarLink({
-  href,
-  active,
-  children,
-}: {
-  href: string;
-  active: boolean;
-  children: React.ReactNode;
-}) {
+function Seccion({ titulo, fino }: { titulo: string; fino: boolean }) {
+  if (fino) {
+    // En modo fino el título se reemplaza por una línea: el espacio no alcanza
+    // para leerlo, pero la separación entre grupos sí tiene que notarse.
+    return <div className="mx-3 mb-1.5 border-t border-border" />;
+  }
   return (
-    <Link
-      href={href}
-      className={`block rounded-md px-2 py-1.5 text-sm transition-colors ${
-        active ? "bg-surface-2 text-text" : "text-muted hover:bg-surface-2 hover:text-text"
-      }`}
+    <h2 className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
+      {titulo}
+    </h2>
+  );
+}
+
+/**
+ * Una fila de la barra. Sirve para enlaces y para botones, porque visualmente
+ * son la misma cosa y separarlos duplicaría el estilo y el comportamiento.
+ */
+function Fila({
+  href,
+  onClick,
+  activo,
+  fino,
+  etiqueta,
+  icono,
+  tenue,
+}: {
+  href?: string;
+  onClick?: () => void;
+  activo?: boolean;
+  fino: boolean;
+  etiqueta: string;
+  icono: React.ReactNode;
+  tenue?: boolean;
+}) {
+  const clases = `group relative flex h-9 w-full items-center rounded-md text-sm transition-colors ${
+    fino ? "justify-center px-0" : "gap-2.5 px-2.5"
+  } ${
+    activo
+      ? "bg-surface-2 text-text"
+      : `${tenue ? "text-muted/70" : "text-muted"} hover:bg-surface-2 hover:text-text`
+  }`;
+
+  const contenido = (
+    <>
+      {/* Marca de activo a la izquierda. Funciona igual en los dos modos, que
+          es justamente lo que un fondo de color solo no logra en el fino. */}
+      {activo && (
+        <span
+          aria-hidden
+          className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-accent"
+        />
+      )}
+      <span className="flex size-4 shrink-0 items-center justify-center">{icono}</span>
+      {!fino && <span className="min-w-0 flex-1 truncate text-left">{etiqueta}</span>}
+
+      {/* En modo fino, el nombre aparece al pasar el mouse. Sin esto, un ícono
+          sin texto obliga a adivinar. */}
+      {fino && (
+        <span
+          role="tooltip"
+          className="pointer-events-none absolute left-full z-40 ml-2 hidden whitespace-nowrap rounded-md border border-border bg-surface px-2 py-1 text-xs text-text shadow-lg group-hover:block group-focus-visible:block"
+        >
+          {etiqueta}
+        </span>
+      )}
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className={clases} aria-label={fino ? etiqueta : undefined}>
+        {contenido}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={clases}
+      aria-label={fino ? etiqueta : undefined}
     >
-      {children}
-    </Link>
+      {contenido}
+    </button>
   );
 }
