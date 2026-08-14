@@ -43,7 +43,7 @@ export function PublicComposition({
   slug: string;
 }) {
   const [consulta, setConsulta] = useState("");
-  const [modo, setModo] = useState<"ficha" | "completa">("ficha");
+  const [modo, setModo] = useState<"ficha" | "completa">("completa");
   const compRef = useRef<HTMLDivElement>(null);
 
   // La única cosa de toda la aplicación que no vive en la base, y por un
@@ -80,7 +80,7 @@ export function PublicComposition({
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-6">
+    <div className="mx-auto w-full max-w-6xl px-4 py-6">
       <header className="mb-5">
         <h1 className="text-2xl font-semibold tracking-tight">{composition.name}</h1>
         <p className="mt-1 text-sm text-muted">
@@ -153,7 +153,11 @@ export function PublicComposition({
 
       <div
         ref={compRef}
-        className={modo === "completa" ? "mt-5 space-y-4" : "mt-5 hidden space-y-4 print:block"}
+        className={
+          modo === "completa"
+            ? "mt-5 grid gap-4 lg:grid-cols-2 print:grid-cols-2"
+            : "mt-5 hidden gap-4 lg:grid-cols-2 print:grid print:grid-cols-2"
+        }
       >
         {composition.groups.map((group) => (
           <GrupoCompleto

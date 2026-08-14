@@ -16,17 +16,5 @@ export default async function BuildsPage({ params }: PageProps<"/app/[game]/buil
     listRoles(game.id),
   ]);
 
-  return (
-    <div className="flex h-full flex-col gap-5">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Builds</h1>
-        <p className="mt-1 text-sm text-muted">
-          Organizalas en carpetas, ponles tags y un color. El color pinta la fila de esa
-          persona en todas las composiciones donde uses la build.
-        </p>
-      </div>
-
-      <BuildsLibrary gameId={game.id} folders={folders} builds={builds} roles={roles} />
-    </div>
-  );
+  return <BuildsLibrary gameId={game.id} folders={folders} builds={builds} roles={roles} />;
 }
