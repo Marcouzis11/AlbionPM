@@ -21,10 +21,21 @@ import { fileURLToPath } from "node:url";
 const SOURCE_URL =
   "https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/formatted/items.json";
 
-const OUT_PATH = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "../src/data/items.json",
-);
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+/** Catálogo completo, para el servidor. */
+const OUT_PATH = resolve(ROOT, "src/data/items.json");
+
+/**
+ * Además se escribe un archivo por slot en `public/items/`.
+ *
+ * El selector de items corre en el navegador y necesita los datos ahí, pero
+ * mandarle el catálogo entero serían 217 KB para elegir un arma. Partido por
+ * slot, el más grande son ~100 KB y solo se descarga el del slot que se está
+ * editando. Al vivir en `public/`, lo sirve el CDN directo: cero funciones
+ * ejecutadas y cero costo.
+ */
+const OUT_DIR_PUBLIC = resolve(ROOT, "public/items");
 
 /**
  * Primer segmento del `UniqueName` (después del tier) → slot de equipo.
@@ -135,11 +146,27 @@ async function main() {
   await mkdir(dirname(OUT_PATH), { recursive: true });
   await writeFile(OUT_PATH, JSON.stringify(items), "utf8");
 
+  await mkdir(OUT_DIR_PUBLIC, { recursive: true });
+  for (const slot of new Set(items.map((item) => item.slot))) {
+    const subset = items
+      .filter((item) => item.slot === slot)
+      // El slot ya está en el nombre del archivo: repetirlo en cada entrada
+      // serían kilobytes de la misma palabra.
+      .map(({ slot: _slot, ...rest }) => rest);
+
+    await writeFile(
+      resolve(OUT_DIR_PUBLIC, `${slot}.json`),
+      JSON.stringify(subset),
+      "utf8",
+    );
+  }
+
   console.log(`\n${items.length.toLocaleString("es")} items equipables:`);
   for (const [slot, count] of [...bySlot].sort()) {
     console.log(`  ${slot.padEnd(10)} ${count}`);
   }
   console.log(`\nEscrito en ${OUT_PATH}`);
+  console.log(`Y un archivo por slot en ${OUT_DIR_PUBLIC}`);
 }
 
 await main();
