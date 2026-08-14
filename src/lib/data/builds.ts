@@ -31,8 +31,11 @@ export async function listBuilds(gameId: string): Promise<Build[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("builds")
-    .select("id, folder_id, name, role_id, color, tags, items, notes, updated_at")
+    .select("id, folder_id, name, role_id, color, tags, items, notes, position, updated_at")
     .eq("game_id", gameId)
+    // Por orden manual, y el nombre solo para desempatar las que nunca se
+    // movieron y comparten posición.
+    .order("position")
     .order("name");
 
   if (error) throw new Error(`No se pudieron leer las builds: ${error.message}`);
@@ -43,7 +46,7 @@ export async function getBuild(id: string): Promise<Build | null> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("builds")
-    .select("id, folder_id, name, role_id, color, tags, items, notes, updated_at")
+    .select("id, folder_id, name, role_id, color, tags, items, notes, position, updated_at")
     .eq("id", id)
     .maybeSingle();
 

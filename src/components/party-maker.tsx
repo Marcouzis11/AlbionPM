@@ -33,12 +33,56 @@ import type { CompositionSummary } from "@/lib/data/compositions";
 
 const EMPTY: ContentState = {};
 
-const PLANTILLAS: { value: Plantilla; label: string; detalle: string }[] = [
-  { value: "party20", label: "Party de 20", detalle: "Un grupo" },
-  { value: "gremio", label: "Gremio", detalle: "Tres grupos de 20" },
-  { value: "multigremio", label: "Multigremio", detalle: "Tres grupos, cada uno con su gremio" },
-  { value: "vacia", label: "Vacía", detalle: "Un grupo sin lugares" },
+type Forma = {
+  value: Plantilla;
+  label: string;
+  detalle: string;
+  /** Cuántos grupos dibuja la miniatura. */
+  grupos: number;
+  /** Cuántos lugares tiene cada uno. Cero deja el grupo vacío. */
+  lugares: number;
+  /** Si cada grupo lleva su franja de gremio arriba. */
+  conGremio: boolean;
+};
+
+const PLANTILLAS: Forma[] = [
+  { value: "party20", label: "Party de 20", detalle: "Un grupo", grupos: 1, lugares: 20, conGremio: false },
+  { value: "gremio", label: "Gremio", detalle: "Tres grupos de 20", grupos: 3, lugares: 20, conGremio: false },
+  { value: "multigremio", label: "Multigremio", detalle: "Tres gremios", grupos: 3, lugares: 20, conGremio: true },
+  { value: "vacia", label: "Vacía", detalle: "Un grupo sin lugares", grupos: 1, lugares: 0, conGremio: false },
 ];
+
+/**
+ * La plantilla, dibujada en chiquito.
+ *
+ * «Gremio» y «Multigremio» son dos palabras parecidas para dos cosas bastante
+ * distintas, y el nombre solo no las separa. La miniatura sí: se ve de una que
+ * una trae tres bloques y la otra tres bloques con su franja arriba. Cada punto
+ * es un lugar, así que la diferencia entre veinte y ninguno también se ve.
+ */
+function MiniPlantilla({ forma }: { forma: Forma }) {
+  return (
+    <span aria-hidden className="flex items-end justify-center gap-1">
+      {Array.from({ length: forma.grupos }, (_, grupo) => (
+        <span
+          key={grupo}
+          className="flex w-8 flex-col gap-0.5 rounded border border-current/40 p-0.5"
+        >
+          {forma.conGremio && <span className="h-1 rounded-sm bg-current/70" />}
+          {forma.lugares === 0 ? (
+            <span className="h-6" />
+          ) : (
+            <span className="grid grid-cols-5 gap-px">
+              {Array.from({ length: forma.lugares }, (_, lugar) => (
+                <span key={lugar} className="aspect-square rounded-[1px] bg-current/60" />
+              ))}
+            </span>
+          )}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 export function PartyMaker({
   gameId,
@@ -535,7 +579,7 @@ function NuevaComposicion({
   }
 
   return (
-    <div className="mt-2 space-y-2 rounded-lg border border-accent/40 bg-accent/5 p-3">
+    <div className="mt-2 space-y-3 rounded-lg border border-accent/40 bg-accent/5 p-3">
       <div className="flex flex-wrap gap-2">
         <input
           autoFocus
@@ -548,18 +592,6 @@ function NuevaComposicion({
           placeholder="CTA del sábado"
           className="h-11 min-w-48 flex-1 rounded-lg border border-border bg-surface px-3 text-sm"
         />
-        <select
-          value={plantilla}
-          onChange={(event) => setPlantilla(event.target.value as Plantilla)}
-          aria-label="Plantilla"
-          className="h-11 rounded-lg border border-border bg-surface px-2.5 text-sm"
-        >
-          {PLANTILLAS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label} — {option.detalle}
-            </option>
-          ))}
-        </select>
         <button
           type="button"
           onClick={crear}
@@ -576,6 +608,36 @@ function NuevaComposicion({
           Cancelar
         </button>
       </div>
+
+      <fieldset>
+        <legend className="sr-only">Plantilla</legend>
+        <div className="flex flex-wrap gap-2">
+          {PLANTILLAS.map((forma) => (
+            <label
+              key={forma.value}
+              className={`flex w-[8.5rem] cursor-pointer flex-col items-center gap-2 rounded-lg border p-2.5 text-center transition-colors ${
+                plantilla === forma.value
+                  ? "border-accent bg-accent/10 text-accent"
+                  : "border-border text-muted hover:border-accent/60"
+              }`}
+            >
+              <input
+                type="radio"
+                name="plantilla"
+                value={forma.value}
+                checked={plantilla === forma.value}
+                onChange={() => setPlantilla(forma.value)}
+                className="sr-only"
+              />
+              <MiniPlantilla forma={forma} />
+              <span className="leading-tight">
+                <span className="block text-xs font-medium text-text">{forma.label}</span>
+                <span className="block text-[11px] text-muted">{forma.detalle}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
     </div>
   );
 }

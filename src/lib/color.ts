@@ -101,17 +101,17 @@ export const HUE_TOLERANCE = 15;
 /**
  * Los colores que distinguen un contenido de otro.
  *
- * Son apagados a propósito. La pestaña de la carpeta es un bloque de color
- * lleno sobre carbón cálido o sobre pergamino, y los tonos saturados que había
- * antes (el azul y el verde de Bootstrap, un lila casi fluorescente) se
- * despegaban del fondo como si fueran de otra aplicación.
+ * Son vivos a propósito. La versión anterior los bajaba de saturación para que
+ * no se despegaran del carbón cálido del tema oscuro, y el resultado fue el
+ * contrario del buscado: pastillas apagadas que se fundían con el fondo justo
+ * en la pantalla donde el color es lo único que distingue una carpeta de otra
+ * de un vistazo.
  *
- * Dos reglas que explican la selección:
+ * Dos reglas se mantienen de la lista anterior:
  *
- * - Ninguno es el rojo de error. La lista anterior arrancaba con `#D9534F`,
- *   que es prácticamente `--danger`: un contenido con ese color parecía roto.
- * - Todos rondan la misma luminosidad media, así se ven igual de presentes en
- *   los dos temas sin que ninguno desaparezca sobre su fondo.
+ * - Ninguno es el rojo de error. Un contenido que parece roto no sirve.
+ * - Los ocho tonos están bien separados entre sí, así dos carpetas contiguas
+ *   nunca se confunden.
  *
  * Vive acá y no junto a la acción de alta porque un archivo `"use server"`
  * solo puede exportar funciones async, y esta lista la necesitan las dos
@@ -120,14 +120,14 @@ export const HUE_TOLERANCE = 15;
 export type ColorDeContenido = { hex: string; nombre: string };
 
 export const PALETA_CONTENIDOS: ColorDeContenido[] = [
-  { hex: "#D4A94A", nombre: "Oro" },
-  { hex: "#C87F3F", nombre: "Ámbar quemado" },
-  { hex: "#7E9A4C", nombre: "Oliva" },
-  { hex: "#4A8C9B", nombre: "Verde azulado" },
-  { hex: "#A75F86", nombre: "Ciruela" },
-  { hex: "#B0603F", nombre: "Terracota" },
-  { hex: "#5F8C74", nombre: "Salvia" },
-  { hex: "#8778B8", nombre: "Violeta apagado" },
+  { hex: "#F0B429", nombre: "Oro" },
+  { hex: "#F2802E", nombre: "Naranja" },
+  { hex: "#8FC33B", nombre: "Lima" },
+  { hex: "#2EBF8F", nombre: "Esmeralda" },
+  { hex: "#35B6D8", nombre: "Cian" },
+  { hex: "#5B8DEF", nombre: "Azul" },
+  { hex: "#A97BF2", nombre: "Violeta" },
+  { hex: "#E56BB0", nombre: "Magenta" },
 ];
 
 /** El que se ofrece marcado al crear: sigue la rotación de la lista. */

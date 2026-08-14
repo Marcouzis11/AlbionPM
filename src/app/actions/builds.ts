@@ -92,6 +92,40 @@ export async function renameFolder(id: string, name: string): Promise<ActionStat
 }
 
 /**
+ * Reordena las builds de una carpeta.
+ *
+ * Recibe la lista completa ya ordenada y no un «mover del 3 al 1». El cliente
+ * ya sabe el orden que está mostrando; mandar la lista entera evita que las dos
+ * versiones se separen si alguien reordena desde dos pestañas a la vez.
+ *
+ * Solo escribe las que de verdad cambian de lugar, así reacomodar dos builds de
+ * una carpeta de treinta no dispara treinta escrituras.
+ */
+export async function reorderBuilds(
+  ordenadas: { id: string; position: number }[],
+): Promise<ActionState> {
+  const supabase = await createClient();
+
+  const cambios = ordenadas
+    .map((build, indice) => ({ id: build.id, desde: build.position, hasta: indice }))
+    .filter((cambio) => cambio.desde !== cambio.hasta);
+
+  if (cambios.length === 0) return {};
+
+  const resultados = await Promise.all(
+    cambios.map((cambio) =>
+      supabase.from("builds").update({ position: cambio.hasta }).eq("id", cambio.id),
+    ),
+  );
+
+  const fallo = resultados.find((resultado) => resultado.error);
+  if (fallo?.error) return { error: fallo.error.message };
+
+  revalidatePath("/app", "layout");
+  return {};
+}
+
+/**
  * Mueve una build a otra carpeta. `null` la deja suelta en la raíz.
  *
  * No hay validación de destino más allá de las políticas de la base: una build

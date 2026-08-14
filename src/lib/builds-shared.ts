@@ -33,6 +33,8 @@ export type Build = {
   tags: string[];
   items: Record<string, BuildItem>;
   notes: string | null;
+  /** Orden manual dentro de su carpeta. Ver migración 0003. */
+  position: number;
   updated_at: string;
 };
 

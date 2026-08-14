@@ -88,7 +88,7 @@ export function BuildPeek({ build }: { build: Build | undefined }) {
             onClick={() => setAbierto(false)}
             aria-hidden
           />
-          <span className="absolute left-0 top-full z-40 mt-1 block w-56 rounded-xl border border-border bg-surface p-2.5 shadow-xl">
+          <span className="absolute left-0 top-full z-40 mt-1 block w-72 rounded-xl border border-border bg-surface p-3 shadow-xl">
             <span className="mb-2 block truncate text-xs font-medium">{build.name}</span>
 
             <span className="grid grid-cols-3 gap-1.5">
@@ -99,10 +99,10 @@ export function BuildPeek({ build }: { build: Build | undefined }) {
                   <span
                     key={slot}
                     title={`${SLOT_LABELS[slot]}${build.items[slot] ? "" : " — vacío"}`}
-                    className="flex aspect-square items-center justify-center rounded border border-border bg-surface-2"
+                    className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-2"
                   >
                     {build.items[slot] ? (
-                      <ItemIcon item={build.items[slot]} size={30} />
+                      <ItemIcon item={build.items[slot]} size={72} className="size-full" />
                     ) : (
                       <span className="text-[9px] text-muted">
                         {SLOT_LABELS[slot].slice(0, 3)}

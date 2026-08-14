@@ -1,8 +1,16 @@
 "use client";
 
-import { FolderPlus, Plus, Trash2 } from "lucide-react";
+import {
+  ChevronRight,
+  Folder,
+  FolderOpen,
+  FolderPlus,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 
 import {
   countBuildUsage,
@@ -13,10 +21,14 @@ import {
   moveBuild,
   moveFolder,
   renameFolder,
+  reorderBuilds,
 } from "@/app/actions/builds";
+import {
+  propsDeArrastre,
+  useZonaDeSoltar,
+  type Arrastrado,
+} from "@/components/arrastre";
 import { BuildEditor } from "@/components/build-editor";
-import { propsDeArrastre } from "@/components/arrastre";
-import { GrillaCarpetas, type FichaDeCarpeta } from "@/components/carpetas";
 import type { UsedColor } from "@/components/color-picker";
 import { ItemIcon } from "@/components/item-icon";
 import { MoverA, type Destino } from "@/components/mover-a";
@@ -28,18 +40,29 @@ import {
 } from "@/lib/builds-shared";
 import { bordeDeFila, tinteDeFila } from "@/lib/color";
 
-/** Marca «sacar de toda carpeta»: el menú necesita un valor, y `null` no sirve. */
-const RAIZ = "__raiz__";
-
 /**
  * Biblioteca de builds.
  *
- * Las carpetas son las mismas fichas que los contenidos del Party Maker y se
- * comportan igual: se abren en el lugar y muestran lo que tienen adentro sin
- * sacarte de la pantalla. Una subcarpeta abierta despliega a su vez su propia
- * grilla, así que la anidación se ve como lo que es —una carpeta dentro de
- * otra— en vez de tener que reconstruirla mentalmente desde una sangría.
+ * Las carpetas son un árbol con sangría, como el explorador de un editor de
+ * código: cada nivel entra un poco más a la derecha, y la forma de la sangría
+ * dice dónde estás parado sin tener que leer una miga de pan. Antes eran fichas
+ * cuadradas, y con carpetas dentro de carpetas eso obligaba a abrir una para
+ * ver la siguiente, perdiendo de vista el camino.
+ *
+ * Las builds NO son filas del árbol: son tarjetas, en una grilla debajo de su
+ * carpeta. Una build es equipo, color, rol, tags y una nota; todo eso en una
+ * fila de una línea entraba recortado o no entraba.
  */
+
+/** Marca «sacar de toda carpeta»: el menú necesita un valor, y `null` no sirve. */
+const RAIZ = "__raiz__";
+
+/** Cuánto se muestra de la nota antes de cortar. Una tarjeta no es un editor. */
+const LIMITE_NOTA = 120;
+
+/** Lo que se ve en la tarjeta. El resto del equipo está en el editor. */
+const VISIBLES = ["mainhand", "offhand", "head", "armor", "shoes"] as const;
+
 export function BuildsLibrary({
   gameId,
   folders,
@@ -54,6 +77,12 @@ export function BuildsLibrary({
   const router = useRouter();
   const [, startTransition] = useTransition();
 
+  const [abiertas, setAbiertas] = useState<Set<string>>(
+    // Las de primer nivel arrancan abiertas: un árbol todo plegado no muestra
+    // nada de lo que la persona vino a buscar.
+    () => new Set(folders.filter((f) => f.parent_id === null).map((f) => f.id)),
+  );
+  const [renombrando, setRenombrando] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
@@ -82,53 +111,6 @@ export function BuildsLibrary({
 
   const buscando = query.trim() !== "" || roleFilter !== "" || tagFilter !== "";
 
-  /** ¿`posible` está en la cadena de padres de `carpeta`? */
-  function esAncestra(posible: string, carpeta: string): boolean {
-    const porId = new Map(folders.map((f) => [f.id, f]));
-    let actual = porId.get(carpeta)?.parent_id ?? null;
-    let vueltas = 0;
-    while (actual && vueltas < 50) {
-      if (actual === posible) return true;
-      actual = porId.get(actual)?.parent_id ?? null;
-      vueltas += 1;
-    }
-    return false;
-  }
-
-  /** La ruta de cada carpeta, para distinguir tres «Gankeo» en tres ramas. */
-  const rutaDe = useMemo(() => {
-    const porId = new Map(folders.map((f) => [f.id, f]));
-    const salida = new Map<string, string>();
-    for (const folder of folders) {
-      const partes: string[] = [];
-      let actual = folder.parent_id;
-      // Tope por si un dato inconsistente dejara un ciclo: sin esto el bucle
-      // colgaría la pestaña en vez de mostrar una ruta incompleta.
-      let vueltas = 0;
-      while (actual && vueltas < 50) {
-        const padre = porId.get(actual);
-        if (!padre) break;
-        partes.unshift(padre.name);
-        actual = padre.parent_id;
-        vueltas += 1;
-      }
-      salida.set(folder.id, partes.join(" / "));
-    }
-    return salida;
-  }, [folders]);
-
-  /** Los destinos posibles para algo que hoy vive en `origen`. */
-  function destinos(origen: string | null, excluir?: string): Destino[] {
-    const lista: Destino[] = folders
-      .filter((f) => f.id !== origen && f.id !== excluir)
-      .map((f) => ({ id: f.id, nombre: f.name, ruta: rutaDe.get(f.id) || undefined }));
-
-    // La raíz también es un destino: sin esto, algo que entró a una carpeta no
-    // puede volver a salir.
-    if (origen !== null) lista.unshift({ id: RAIZ, nombre: "Todas las builds" });
-    return lista;
-  }
-
   /** Buscar mira TODA la biblioteca: si hay que acordarse en qué carpeta quedó
       algo para poder encontrarlo, el buscador no sirve. */
   const resultados = useMemo(() => {
@@ -142,21 +124,26 @@ export function BuildsLibrary({
     });
   }, [builds, roleFilter, tagFilter, query, buscando]);
 
-  function nuevaCarpeta(parentId: string | null) {
-    const name = window.prompt("Nombre de la carpeta");
-    if (!name?.trim()) return;
-    startTransition(async () => {
-      await createFolder(gameId, name, parentId);
-      router.refresh();
-    });
-  }
-
-  function nuevaBuild(folderId: string | null) {
-    startTransition(async () => {
-      await createBuild(gameId, folderId);
-      router.refresh();
-    });
-  }
+  /** La ruta de cada carpeta, para distinguir tres «Gankeo» en tres ramas. */
+  const rutaDe = useMemo(() => {
+    const salida = new Map<string, string>();
+    for (const folder of folders) {
+      const partes: string[] = [];
+      let actual = folder.parent_id;
+      // Tope por si un dato inconsistente dejara un ciclo: sin esto el bucle
+      // colgaría la pestaña en vez de mostrar una ruta incompleta.
+      let vueltas = 0;
+      while (actual && vueltas < 50) {
+        const padre = folderById.get(actual);
+        if (!padre) break;
+        partes.unshift(padre.name);
+        actual = padre.parent_id;
+        vueltas += 1;
+      }
+      salida.set(folder.id, partes.join(" / "));
+    }
+    return salida;
+  }, [folders, folderById]);
 
   function correr(fn: () => Promise<unknown>) {
     startTransition(async () => {
@@ -165,131 +152,182 @@ export function BuildsLibrary({
     });
   }
 
+  function alternar(id: string) {
+    setAbiertas((previo) => {
+      const siguiente = new Set(previo);
+      if (siguiente.has(id)) siguiente.delete(id);
+      else siguiente.add(id);
+      return siguiente;
+    });
+  }
+
+  function abrir(id: string) {
+    setAbiertas((previo) => new Set([...previo, id]));
+  }
+
+  /** ¿`posible` está en la cadena de padres de `carpeta`? */
+  function esAncestra(posible: string, carpeta: string): boolean {
+    let actual = folderById.get(carpeta)?.parent_id ?? null;
+    let vueltas = 0;
+    while (actual && vueltas < 50) {
+      if (actual === posible) return true;
+      actual = folderById.get(actual)?.parent_id ?? null;
+      vueltas += 1;
+    }
+    return false;
+  }
+
+  /** Los destinos posibles para algo que hoy vive en `origen`. */
+  function destinos(origen: string | null, excluir?: string): Destino[] {
+    const lista: Destino[] = folders
+      .filter((f) => f.id !== origen && f.id !== excluir)
+      .filter((f) => !excluir || !esAncestra(excluir, f.id))
+      .map((f) => ({ id: f.id, nombre: f.name, ruta: rutaDe.get(f.id) || undefined }));
+
+    // La raíz también es destino: sin esto, algo que entró a una carpeta no
+    // puede volver a salir.
+    if (origen !== null) lista.unshift({ id: RAIZ, nombre: "Fuera de toda carpeta" });
+    return lista;
+  }
+
+  function buildsDe(folderId: string | null): Build[] {
+    return builds.filter((b) => b.folder_id === folderId);
+  }
+
+  function nuevaCarpeta(parentId: string | null) {
+    const name = window.prompt("Nombre de la carpeta");
+    if (!name?.trim()) return;
+    correr(async () => {
+      await createFolder(gameId, name, parentId);
+      if (parentId) abrir(parentId);
+    });
+  }
+
+  function nuevaBuild(folderId: string | null) {
+    correr(async () => {
+      await createBuild(gameId, folderId);
+      if (folderId) abrir(folderId);
+    });
+  }
+
   async function pedirBorrarBuild(build: Build) {
     setConfirm({ tipo: "build", build, usos: await countBuildUsage(build.id) });
   }
 
-  function listaDeBuilds(propias: Build[]) {
+  function pedirBorrarCarpeta(folder: BuildFolder) {
+    const dentro = countFolderChildren(folder.id, folders, builds);
+    setConfirm({
+      tipo: "carpeta",
+      folder,
+      subcarpetas: dentro.folders,
+      buildsDentro: dentro.builds,
+    });
+  }
+
+  /**
+   * Soltar una build sobre otra.
+   *
+   * Si vienen de la misma carpeta es un reordenamiento: la arrastrada se mete
+   * en el lugar de la otra. Si viene de otra carpeta es una mudanza. La misma
+   * zona resuelve las dos porque para quien arrastra es el mismo gesto.
+   */
+  function soltarSobreBuild(arrastradaId: string, destino: Build) {
+    const arrastrada = builds.find((b) => b.id === arrastradaId);
+    if (!arrastrada || arrastrada.id === destino.id) return;
+
+    if (arrastrada.folder_id !== destino.folder_id) {
+      correr(() => moveBuild(arrastrada.id, destino.folder_id));
+      return;
+    }
+
+    const lista = buildsDe(destino.folder_id).filter((b) => b.id !== arrastrada.id);
+    const donde = lista.findIndex((b) => b.id === destino.id);
+    lista.splice(donde, 0, arrastrada);
+    correr(() => reorderBuilds(lista.map((b) => ({ id: b.id, position: b.position }))));
+  }
+
+  function grillaDeBuilds(propias: Build[], nivel: number, conCarpeta: boolean) {
     return (
-      <ul className="aparece-escalonado space-y-1.5">
+      <div
+        className="aparece-escalonado grid gap-2.5 py-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+        style={{ marginLeft: nivel * 18 + 6 }}
+      >
         {propias.map((build) => (
-          <li key={build.id}>
-            <FilaBuild
-              build={build}
-              destinos={destinos(build.folder_id)}
-              onMover={(destino) =>
-                correr(() => moveBuild(build.id, destino === RAIZ ? null : destino))
-              }
-              rolNombre={build.role_id ? roleById.get(build.role_id)?.name : undefined}
-              carpetaNombre={
-                buscando && build.folder_id
-                  ? folderById.get(build.folder_id)?.name
-                  : undefined
-              }
-              onEditar={() => setEditing(build)}
-              onBorrar={() => pedirBorrarBuild(build)}
-            />
-          </li>
+          <TarjetaBuild
+            key={build.id}
+            build={build}
+            rolNombre={build.role_id ? roleById.get(build.role_id)?.name : undefined}
+            carpetaNombre={
+              conCarpeta && build.folder_id
+                ? folderById.get(build.folder_id)?.name
+                : undefined
+            }
+            destinos={destinos(build.folder_id)}
+            onMover={(destino) =>
+              correr(() => moveBuild(build.id, destino === RAIZ ? null : destino))
+            }
+            onSoltarBuild={conCarpeta ? undefined : (id) => soltarSobreBuild(id, build)}
+            onEditar={() => setEditing(build)}
+            onBorrar={() => pedirBorrarBuild(build)}
+          />
         ))}
-      </ul>
-    );
-  }
-
-  /** Las carpetas hijas de una, ya listas para la grilla. Se llama a sí misma
-      a través de `panel`: una carpeta abierta arma la grilla de las suyas. */
-  function carpetasDe(parentId: string | null): FichaDeCarpeta[] {
-    return folders
-      .filter((f) => f.parent_id === parentId)
-      .map((f) => {
-        const dentro = countFolderChildren(f.id, folders, builds);
-        return {
-          id: f.id,
-          nombre: f.name,
-          detalle: describir(dentro),
-          onRenombrar: (nombre) => correr(() => renameFolder(f.id, nombre)),
-          arrastre: {
-            tomar: { tipo: "carpeta", id: f.id, origen: f.parent_id },
-            // Acepta builds de otra carpeta, y carpetas que no sean ella misma
-            // ni una de sus ancestras. Lo de las ancestras lo vuelve a mirar el
-            // servidor: acá es para no ofrecer una zona que va a fallar.
-            acepta: (dato) =>
-              (dato.tipo === "build" && dato.origen !== f.id) ||
-              (dato.tipo === "carpeta" &&
-                dato.id !== f.id &&
-                dato.origen !== f.id &&
-                !esAncestra(dato.id, f.id)),
-            alSoltar: (dato) =>
-              correr(() =>
-                dato.tipo === "build"
-                  ? moveBuild(dato.id, f.id)
-                  : moveFolder(dato.id, f.id),
-              ),
-          },
-          panel: () => contenidoDeCarpeta(f.id),
-          accion: (
-            <div className="flex items-center gap-0.5 rounded-lg bg-surface/90">
-              <MoverA
-                etiqueta={`Mover la carpeta ${f.name}`}
-                destinos={destinos(f.parent_id, f.id)}
-                onMover={(destino) =>
-                  correr(() => moveFolder(f.id, destino === RAIZ ? null : destino))
-                }
-              />
-            <button
-              type="button"
-              onClick={() =>
-                setConfirm({
-                  tipo: "carpeta",
-                  folder: f,
-                  subcarpetas: dentro.folders,
-                  buildsDentro: dentro.builds,
-                })
-              }
-              aria-label={`Borrar carpeta ${f.name}`}
-              className="flex size-8 items-center justify-center rounded-lg text-muted transition-colors hover:text-danger"
-            >
-              <Trash2 size={14} aria-hidden />
-            </button>
-            </div>
-          ),
-        };
-      });
-  }
-
-  /** Lo que se ve dentro de una carpeta abierta: sus subcarpetas y sus builds.
-      Es una función que devuelve JSX y no un componente: un componente
-      declarado acá adentro sería un tipo nuevo en cada pintada, y React
-      remontaría la grilla perdiendo la animación de cierre a medio camino. */
-  function contenidoDeCarpeta(folderId: string) {
-    const subcarpetas = carpetasDe(folderId);
-    const propias = builds.filter((b) => b.folder_id === folderId);
-
-    return (
-      <div className="space-y-3">
-        {subcarpetas.length > 0 && (
-          <GrillaCarpetas carpetas={subcarpetas} anidada />
-        )}
-
-        {propias.length > 0 ? (
-          listaDeBuilds(propias)
-        ) : (
-          <p className="px-1 text-sm text-muted">
-            {subcarpetas.length > 0
-              ? "Todas las builds están en las subcarpetas."
-              : "Esta carpeta está vacía."}
-          </p>
-        )}
-
-        <BotonesDeCreacion
-          onCarpeta={() => nuevaCarpeta(folderId)}
-          onBuild={() => nuevaBuild(folderId)}
-        />
       </div>
     );
   }
 
-  const raiz = carpetasDe(null);
-  const sueltas = builds.filter((b) => b.folder_id === null);
+  /** Una carpeta y todo lo que cuelga de ella. Se llama a sí misma por nivel. */
+  function rama(parentId: string | null, nivel: number): React.ReactNode {
+    const subcarpetas = folders.filter((f) => f.parent_id === parentId);
+    const propias = buildsDe(parentId);
+
+    return (
+      <>
+        {subcarpetas.map((f) => (
+          <Fragment key={f.id}>
+            <FilaCarpeta
+              folder={f}
+              nivel={nivel}
+              abierta={abiertas.has(f.id)}
+              cuantas={countFolderChildren(f.id, folders, builds).builds}
+              renombrando={renombrando === f.id}
+              destinos={destinos(f.parent_id, f.id)}
+              onAlternar={() => alternar(f.id)}
+              onRenombrar={(nombre) => {
+                setRenombrando(null);
+                if (nombre !== f.name) correr(() => renameFolder(f.id, nombre));
+              }}
+              onEmpezarRenombre={() => setRenombrando(f.id)}
+              onCancelarRenombre={() => setRenombrando(null)}
+              onMover={(destino) =>
+                correr(() => moveFolder(f.id, destino === RAIZ ? null : destino))
+              }
+              acepta={(dato) =>
+                (dato.tipo === "build" && dato.origen !== f.id) ||
+                (dato.tipo === "carpeta" &&
+                  dato.id !== f.id &&
+                  dato.origen !== f.id &&
+                  !esAncestra(dato.id, f.id))
+              }
+              onSoltar={(dato) => {
+                abrir(f.id);
+                if (dato.tipo === "build") correr(() => moveBuild(dato.id, f.id));
+                if (dato.tipo === "carpeta") correr(() => moveFolder(dato.id, f.id));
+              }}
+              onNuevaBuild={() => nuevaBuild(f.id)}
+              onNuevaCarpeta={() => nuevaCarpeta(f.id)}
+              onBorrar={() => pedirBorrarCarpeta(f)}
+            />
+
+            {abiertas.has(f.id) && rama(f.id, nivel + 1)}
+          </Fragment>
+        ))}
+
+        {propias.length > 0 && grillaDeBuilds(propias, nivel, false)}
+      </>
+    );
+  }
+
+  const hayAlgo = folders.length > 0 || builds.length > 0;
 
   return (
     <div className="space-y-4">
@@ -342,7 +380,7 @@ export function BuildsLibrary({
           <button
             type="button"
             onClick={() => nuevaCarpeta(null)}
-            className="flex h-10 items-center gap-1.5 rounded-lg border border-border px-3 text-sm hover:bg-surface-2"
+            className="flex h-10 items-center gap-1.5 rounded-lg border border-border px-3 text-sm transition-colors hover:bg-surface-2"
           >
             <FolderPlus size={15} aria-hidden />
             <span className="hidden sm:inline">Carpeta</span>
@@ -350,7 +388,7 @@ export function BuildsLibrary({
           <button
             type="button"
             onClick={() => nuevaBuild(null)}
-            className="flex h-10 items-center gap-1.5 rounded-lg bg-accent px-3 text-sm font-medium text-accent-fg hover:bg-accent-hover active:translate-y-px"
+            className="flex h-10 items-center gap-1.5 rounded-lg bg-accent px-3 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover active:translate-y-px"
           >
             <Plus size={15} aria-hidden />
             Nueva build
@@ -359,28 +397,19 @@ export function BuildsLibrary({
       </div>
 
       {buscando ? (
-        // Buscando no hay carpetas: los resultados vienen de toda la
-        // biblioteca, y cada uno dice de qué carpeta salió.
         resultados.length === 0 ? (
           <Vacio>Ninguna build coincide con el filtro.</Vacio>
         ) : (
-          listaDeBuilds(resultados)
+          grillaDeBuilds(resultados, 0, true)
         )
-      ) : (
-        <div className="space-y-4">
-          {raiz.length > 0 && (
-            <GrillaCarpetas carpetas={raiz} />
-          )}
-
-          {sueltas.length > 0 && listaDeBuilds(sueltas)}
-
-          {raiz.length === 0 && sueltas.length === 0 && (
-            <Vacio>
-              Todavía no tenés builds ni carpetas. Creá la primera con los botones de
-              arriba.
-            </Vacio>
-          )}
+      ) : hayAlgo ? (
+        <div className="rounded-xl border border-border bg-surface p-2">
+          {rama(null, 0)}
         </div>
+      ) : (
+        <Vacio>
+          Todavía no tenés builds ni carpetas. Creá la primera con los botones de arriba.
+        </Vacio>
       )}
 
       {editing && (
@@ -407,123 +436,265 @@ export function BuildsLibrary({
   );
 }
 
-/** «2 carpetas · 9 builds», que es lo que hace falta saber sin abrirla. */
-function describir({ folders, builds }: { folders: number; builds: number }): string {
-  const partes: string[] = [];
-  if (folders > 0) partes.push(`${folders} carpeta${folders === 1 ? "" : "s"}`);
-  if (builds > 0) partes.push(`${builds} build${builds === 1 ? "" : "s"}`);
-  return partes.length > 0 ? partes.join(" · ") : "Vacía";
+/**
+ * Una carpeta en el árbol.
+ *
+ * La sangría es un margen y no caracteres de relleno: así el nombre se puede
+ * seleccionar y copiar sin arrastrar espacios, y la fila entera sigue siendo
+ * zona para soltar aunque el texto sea corto.
+ */
+function FilaCarpeta({
+  folder,
+  nivel,
+  abierta,
+  cuantas,
+  renombrando,
+  destinos,
+  onAlternar,
+  onRenombrar,
+  onEmpezarRenombre,
+  onCancelarRenombre,
+  onMover,
+  acepta,
+  onSoltar,
+  onNuevaBuild,
+  onNuevaCarpeta,
+  onBorrar,
+}: {
+  folder: BuildFolder;
+  nivel: number;
+  abierta: boolean;
+  cuantas: number;
+  renombrando: boolean;
+  destinos: Destino[];
+  onAlternar: () => void;
+  onRenombrar: (nombre: string) => void;
+  onEmpezarRenombre: () => void;
+  onCancelarRenombre: () => void;
+  onMover: (destinoId: string) => void;
+  acepta: (dato: Arrastrado) => boolean;
+  onSoltar: (dato: Arrastrado) => void;
+  onNuevaBuild: () => void;
+  onNuevaCarpeta: () => void;
+  onBorrar: () => void;
+}) {
+  const zona = useZonaDeSoltar(acepta, onSoltar);
+
+  return (
+    <div
+      {...zona.props}
+      {...propsDeArrastre({ tipo: "carpeta", id: folder.id, origen: folder.parent_id })}
+      style={{ paddingLeft: nivel * 18 + 4 }}
+      className={`group flex min-h-9 items-center gap-1 rounded-lg pr-1 transition-colors ${
+        zona.encima ? "bg-accent/15 ring-1 ring-accent" : "hover:bg-surface-2"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={onAlternar}
+        aria-expanded={abierta}
+        className="flex min-w-0 flex-1 items-center gap-1.5 py-1 text-left"
+      >
+        <ChevronRight
+          size={14}
+          aria-hidden
+          className={`shrink-0 text-muted transition-transform duration-150 motion-reduce:transition-none ${
+            abierta ? "rotate-90" : ""
+          }`}
+        />
+        {abierta ? (
+          <FolderOpen size={15} className="shrink-0 text-accent" aria-hidden />
+        ) : (
+          <Folder size={15} className="shrink-0 text-muted" aria-hidden />
+        )}
+
+        {renombrando ? (
+          <input
+            autoFocus
+            defaultValue={folder.name}
+            maxLength={60}
+            onClick={(event) => event.stopPropagation()}
+            onBlur={(event) => onRenombrar(event.target.value.trim() || folder.name)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.currentTarget.blur();
+              if (event.key === "Escape") onCancelarRenombre();
+            }}
+            className="min-w-0 flex-1 rounded border border-accent bg-surface px-1.5 py-0.5 text-sm"
+          />
+        ) : (
+          <span className="truncate text-sm">{folder.name}</span>
+        )}
+
+        {cuantas > 0 && (
+          <span className="shrink-0 text-xs tabular-nums text-muted">{cuantas}</span>
+        )}
+      </button>
+
+      <div className="flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+        <button
+          type="button"
+          onClick={onNuevaBuild}
+          aria-label={`Nueva build en ${folder.name}`}
+          title="Nueva build acá"
+          className="flex size-7 items-center justify-center rounded text-muted transition-colors hover:text-text"
+        >
+          <Plus size={14} aria-hidden />
+        </button>
+        <button
+          type="button"
+          onClick={onNuevaCarpeta}
+          aria-label={`Nueva subcarpeta en ${folder.name}`}
+          title="Nueva subcarpeta"
+          className="flex size-7 items-center justify-center rounded text-muted transition-colors hover:text-text"
+        >
+          <FolderPlus size={14} aria-hidden />
+        </button>
+        <button
+          type="button"
+          onClick={onEmpezarRenombre}
+          aria-label={`Renombrar ${folder.name}`}
+          title="Renombrar"
+          className="flex size-7 items-center justify-center rounded text-muted transition-colors hover:text-text"
+        >
+          <Pencil size={13} aria-hidden />
+        </button>
+        <MoverA
+          etiqueta={`Mover la carpeta ${folder.name}`}
+          destinos={destinos}
+          onMover={onMover}
+        />
+        <button
+          type="button"
+          onClick={onBorrar}
+          aria-label={`Borrar ${folder.name}`}
+          title="Borrar"
+          className="flex size-7 items-center justify-center rounded text-muted transition-colors hover:text-danger"
+        >
+          <Trash2 size={13} aria-hidden />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Una build, como tarjeta.
+ *
+ * El color de la build pinta la tarjeta entera: es el mismo color que después
+ * pinta su fila en cada composición donde aparezca, así que reconocerla acá es
+ * reconocerla allá.
+ */
+function TarjetaBuild({
+  build,
+  rolNombre,
+  carpetaNombre,
+  destinos,
+  onMover,
+  onSoltarBuild,
+  onEditar,
+  onBorrar,
+}: {
+  build: Build;
+  rolNombre: string | undefined;
+  carpetaNombre: string | undefined;
+  destinos: Destino[];
+  onMover: (destinoId: string) => void;
+  /** Ausente en los resultados de búsqueda: ahí no hay una carpeta que ordenar. */
+  onSoltarBuild?: (buildId: string) => void;
+  onEditar: () => void;
+  onBorrar: () => void;
+}) {
+  const zona = useZonaDeSoltar(
+    (dato) => Boolean(onSoltarBuild) && dato.tipo === "build" && dato.id !== build.id,
+    (dato) => onSoltarBuild?.(dato.id),
+  );
+
+  const nota =
+    build.notes && build.notes.length > LIMITE_NOTA
+      ? `${build.notes.slice(0, LIMITE_NOTA).trimEnd()}…`
+      : build.notes;
+
+  return (
+    <div
+      {...zona.props}
+      {...propsDeArrastre({ tipo: "build", id: build.id, origen: build.folder_id })}
+      className={`flex cursor-grab flex-col gap-2 rounded-xl border p-2.5 transition-shadow active:cursor-grabbing ${
+        zona.encima ? "ring-2 ring-accent" : ""
+      }`}
+      style={
+        build.color
+          ? { background: tinteDeFila(build.color), borderColor: bordeDeFila(build.color) }
+          : { borderColor: "var(--border)" }
+      }
+    >
+      <div className="flex gap-1">
+        {VISIBLES.map((slot) =>
+          build.items[slot] ? (
+            <ItemIcon key={slot} item={build.items[slot]} size={44} />
+          ) : (
+            <span
+              key={slot}
+              className="size-11 shrink-0 rounded-lg border border-dashed border-border"
+            />
+          ),
+        )}
+      </div>
+
+      <div className="min-w-0">
+        <p className="truncate font-medium" title={build.name}>
+          {build.name}
+        </p>
+        <p className="truncate text-xs text-muted">
+          {rolNombre ?? "Sin rol"}
+          {carpetaNombre ? ` · ${carpetaNombre}` : ""}
+        </p>
+      </div>
+
+      {build.tags.length > 0 && (
+        <ul className="flex flex-wrap gap-1">
+          {build.tags.map((tag) => (
+            <li
+              key={tag}
+              className="rounded-lg bg-surface-2 px-1.5 py-0.5 text-[11px] text-muted"
+            >
+              {tag}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {nota && <p className="text-xs leading-snug text-muted">{nota}</p>}
+
+      <div className="mt-auto flex items-center gap-1 pt-1">
+        <button
+          type="button"
+          onClick={onEditar}
+          className="h-8 flex-1 rounded-lg border border-border/70 text-sm transition-colors hover:bg-surface-2"
+        >
+          Editar
+        </button>
+        <MoverA
+          etiqueta={`Mover ${build.name} a otra carpeta`}
+          destinos={destinos}
+          onMover={onMover}
+        />
+        <button
+          type="button"
+          onClick={onBorrar}
+          aria-label={`Borrar ${build.name}`}
+          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:text-danger"
+        >
+          <Trash2 size={14} aria-hidden />
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function Vacio({ children }: { children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted">
       {children}
-    </div>
-  );
-}
-
-function BotonesDeCreacion({
-  onCarpeta,
-  onBuild,
-}: {
-  onCarpeta: () => void;
-  onBuild: () => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      <button
-        type="button"
-        onClick={onBuild}
-        className="flex h-10 items-center gap-1.5 rounded-lg px-2.5 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-text"
-      >
-        <Plus size={15} aria-hidden />
-        Nueva build acá
-      </button>
-      <button
-        type="button"
-        onClick={onCarpeta}
-        className="flex h-10 items-center gap-1.5 rounded-lg px-2.5 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-text"
-      >
-        <FolderPlus size={15} aria-hidden />
-        Subcarpeta
-      </button>
-    </div>
-  );
-}
-
-function FilaBuild({
-  build,
-  destinos,
-  onMover,
-  rolNombre,
-  carpetaNombre,
-  onEditar,
-  onBorrar,
-}: {
-  build: Build;
-  destinos: Destino[];
-  onMover: (destinoId: string) => void;
-  rolNombre: string | undefined;
-  carpetaNombre: string | undefined;
-  onEditar: () => void;
-  onBorrar: () => void;
-}) {
-  return (
-    <div
-      {...propsDeArrastre({ tipo: "build", id: build.id, origen: build.folder_id })}
-      className="flex min-h-14 cursor-grab flex-wrap items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 active:cursor-grabbing"
-      style={
-        build.color
-          ? { background: tinteDeFila(build.color), borderColor: bordeDeFila(build.color) }
-          : undefined
-      }
-    >
-      <div className="flex shrink-0 gap-1">
-        {(["mainhand", "offhand", "head", "armor", "shoes"] as const).map((slot) =>
-          build.items[slot] ? (
-            <ItemIcon key={slot} item={build.items[slot]} size={28} />
-          ) : (
-            <span
-              key={slot}
-              className="size-7 shrink-0 rounded border border-dashed border-border"
-            />
-          ),
-        )}
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium" title={build.name}>
-          {build.name}
-        </p>
-        <p className="truncate text-xs text-muted">
-          {rolNombre ?? "Sin rol"}
-          {carpetaNombre ? ` · ${carpetaNombre}` : ""}
-          {build.tags.length > 0 && ` · ${build.tags.join(", ")}`}
-        </p>
-      </div>
-
-      <MoverA
-        etiqueta={`Mover ${build.name} a otra carpeta`}
-        destinos={destinos}
-        onMover={onMover}
-      />
-
-      <button
-        type="button"
-        onClick={onEditar}
-        className="h-9 shrink-0 rounded-lg border border-border px-3 text-sm hover:bg-surface-2"
-      >
-        Editar
-      </button>
-      <button
-        type="button"
-        onClick={onBorrar}
-        aria-label={`Borrar ${build.name}`}
-        className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted hover:text-danger"
-      >
-        <Trash2 size={15} aria-hidden />
-      </button>
     </div>
   );
 }

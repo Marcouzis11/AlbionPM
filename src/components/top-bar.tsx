@@ -41,14 +41,10 @@ export function TopBar({ game, games, email, theme }: Props) {
     { href: `${base}/historial`, etiqueta: "Historial", icono: History, exacto: false },
   ];
 
-  /** Party Maker cubre también las pantallas de contenido y de composición. */
+  /** Party Maker cubre también la pantalla de una composición abierta. */
   function activa(href: string): boolean {
     if (href === base) {
-      return (
-        pathname === base ||
-        pathname.startsWith(`${base}/c/`) ||
-        pathname.startsWith(`${base}/comp/`)
-      );
+      return pathname === base || pathname.startsWith(`${base}/comp/`);
     }
     return pathname.startsWith(href);
   }

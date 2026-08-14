@@ -25,10 +25,10 @@ export default async function CompositionPage({
   return (
     <div className="space-y-4">
       <Link
-        href={`/app/${slug}/c/${composition.content_id}`}
+        href={`/app/${slug}`}
         className="text-sm text-muted hover:text-text"
       >
-        ← Volver
+        ← Volver al Party Maker
       </Link>
 
       <CompositionEditor composition={composition} builds={builds} roles={roles} />
