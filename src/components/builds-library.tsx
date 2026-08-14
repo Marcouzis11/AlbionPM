@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Folder, FolderPlus, Home, Plus, Trash2 } from "lucide-react";
+import { FolderPlus, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
@@ -12,6 +12,7 @@ import {
   deleteFolder,
 } from "@/app/actions/builds";
 import { BuildEditor } from "@/components/build-editor";
+import { GrillaCarpetas, type FichaDeCarpeta } from "@/components/carpetas";
 import type { UsedColor } from "@/components/color-picker";
 import { ItemIcon } from "@/components/item-icon";
 import {
@@ -20,14 +21,16 @@ import {
   type BuildFolder,
   type Role,
 } from "@/lib/builds-shared";
+import { bordeDeFila, tinteDeFila } from "@/lib/color";
 
 /**
  * Biblioteca de builds.
  *
- * La navegación de carpetas es por ruta y no por árbol lateral: estás *dentro*
- * de una carpeta y ves sus subcarpetas y sus builds. Un árbol permanente
- * ocupaba una columna fija para algo que se toca de vez en cuando, y con
- * carpetas anidadas se volvía ilegible por la sangría.
+ * Las carpetas son las mismas fichas que los contenidos del Party Maker y se
+ * comportan igual: se abren en el lugar y muestran lo que tienen adentro sin
+ * sacarte de la pantalla. Una subcarpeta abierta despliega a su vez su propia
+ * grilla, así que la anidación se ve como lo que es —una carpeta dentro de
+ * otra— en vez de tener que reconstruirla mentalmente desde una sangría.
  */
 export function BuildsLibrary({
   gameId,
@@ -43,7 +46,7 @@ export function BuildsLibrary({
   const router = useRouter();
   const [, startTransition] = useTransition();
 
-  const [carpetaActual, setCarpetaActual] = useState<string | null>(null);
+  const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
@@ -70,50 +73,144 @@ export function BuildsLibrary({
     [builds],
   );
 
-  /** Camino desde la raíz hasta la carpeta actual, para las migas de pan. */
-  const camino = useMemo(() => {
-    const salida: BuildFolder[] = [];
-    let actual = carpetaActual;
-    while (actual) {
-      const f = folderById.get(actual);
-      if (!f) break;
-      salida.unshift(f);
-      actual = f.parent_id;
-    }
-    return salida;
-  }, [carpetaActual, folderById]);
-
-  const subcarpetas = folders.filter((f) => f.parent_id === carpetaActual);
   const buscando = query.trim() !== "" || roleFilter !== "" || tagFilter !== "";
 
-  const visibles = useMemo(() => {
+  /** Buscar mira TODA la biblioteca: si hay que acordarse en qué carpeta quedó
+      algo para poder encontrarlo, el buscador no sirve. */
+  const resultados = useMemo(() => {
+    if (!buscando) return [];
     const q = query.trim().toLowerCase();
     return builds.filter((build) => {
-      // Buscar mira TODA la biblioteca: si hay que acordarse en qué carpeta
-      // quedó algo para poder encontrarlo, el buscador no sirve.
-      if (!buscando && build.folder_id !== carpetaActual) return false;
       if (roleFilter && build.role_id !== roleFilter) return false;
       if (tagFilter && !build.tags.includes(tagFilter)) return false;
       if (q && !build.name.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [builds, carpetaActual, roleFilter, tagFilter, query, buscando]);
+  }, [builds, roleFilter, tagFilter, query, buscando]);
 
-  function nuevaCarpeta() {
+  function alternar(id: string) {
+    setAbiertas((previo) => {
+      const siguiente = new Set(previo);
+      if (siguiente.has(id)) siguiente.delete(id);
+      else siguiente.add(id);
+      return siguiente;
+    });
+  }
+
+  function nuevaCarpeta(parentId: string | null) {
     const name = window.prompt("Nombre de la carpeta");
     if (!name?.trim()) return;
     startTransition(async () => {
-      await createFolder(gameId, name, carpetaActual);
+      await createFolder(gameId, name, parentId);
       router.refresh();
     });
   }
 
-  function nuevaBuild() {
+  function nuevaBuild(folderId: string | null) {
     startTransition(async () => {
-      await createBuild(gameId, carpetaActual);
+      await createBuild(gameId, folderId);
       router.refresh();
     });
   }
+
+  async function pedirBorrarBuild(build: Build) {
+    setConfirm({ tipo: "build", build, usos: await countBuildUsage(build.id) });
+  }
+
+  function listaDeBuilds(propias: Build[]) {
+    return (
+      <ul className="aparece-escalonado space-y-1.5">
+        {propias.map((build) => (
+          <li key={build.id}>
+            <FilaBuild
+              build={build}
+              rolNombre={build.role_id ? roleById.get(build.role_id)?.name : undefined}
+              carpetaNombre={
+                buscando && build.folder_id
+                  ? folderById.get(build.folder_id)?.name
+                  : undefined
+              }
+              onEditar={() => setEditing(build)}
+              onBorrar={() => pedirBorrarBuild(build)}
+            />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  /** Las carpetas hijas de una, ya listas para la grilla. Se llama a sí misma
+      a través de `panel`: una carpeta abierta arma la grilla de las suyas. */
+  function carpetasDe(parentId: string | null): FichaDeCarpeta[] {
+    return folders
+      .filter((f) => f.parent_id === parentId)
+      .map((f) => {
+        const dentro = countFolderChildren(f.id, folders, builds);
+        return {
+          id: f.id,
+          nombre: f.name,
+          detalle: describir(dentro),
+          panel: () => contenidoDeCarpeta(f.id),
+          accion: (
+            <button
+              type="button"
+              onClick={() =>
+                setConfirm({
+                  tipo: "carpeta",
+                  folder: f,
+                  subcarpetas: dentro.folders,
+                  buildsDentro: dentro.builds,
+                })
+              }
+              aria-label={`Borrar carpeta ${f.name}`}
+              className="flex size-7 items-center justify-center rounded-lg bg-surface/90 text-muted transition-colors hover:text-danger"
+            >
+              <Trash2 size={14} aria-hidden />
+            </button>
+          ),
+        };
+      });
+  }
+
+  /** Lo que se ve dentro de una carpeta abierta: sus subcarpetas y sus builds.
+      Es una función que devuelve JSX y no un componente: un componente
+      declarado acá adentro sería un tipo nuevo en cada pintada, y React
+      remontaría la grilla perdiendo la animación de cierre a medio camino. */
+  function contenidoDeCarpeta(folderId: string) {
+    const subcarpetas = carpetasDe(folderId);
+    const propias = builds.filter((b) => b.folder_id === folderId);
+
+    return (
+      <div className="space-y-3">
+        {subcarpetas.length > 0 && (
+          <GrillaCarpetas
+            carpetas={subcarpetas}
+            abiertas={abiertas}
+            onAlternar={alternar}
+            anidada
+          />
+        )}
+
+        {propias.length > 0 ? (
+          listaDeBuilds(propias)
+        ) : (
+          <p className="px-1 text-sm text-muted">
+            {subcarpetas.length > 0
+              ? "Todas las builds están en las subcarpetas."
+              : "Esta carpeta está vacía."}
+          </p>
+        )}
+
+        <BotonesDeCreacion
+          onCarpeta={() => nuevaCarpeta(folderId)}
+          onBuild={() => nuevaBuild(folderId)}
+        />
+      </div>
+    );
+  }
+
+  const raiz = carpetasDe(null);
+  const sueltas = builds.filter((b) => b.folder_id === null);
 
   return (
     <div className="space-y-4">
@@ -124,34 +221,6 @@ export function BuildsLibrary({
           composiciones donde la uses.
         </p>
       </div>
-
-      {/* Migas de pan: dónde estás y cómo volver, en una sola línea. */}
-      <nav aria-label="Carpeta actual" className="flex flex-wrap items-center gap-0.5 text-sm">
-        <button
-          type="button"
-          onClick={() => setCarpetaActual(null)}
-          className={`flex h-9 items-center gap-1.5 rounded-lg px-2.5 transition-colors ${
-            carpetaActual === null ? "text-text" : "text-muted hover:bg-surface-2"
-          }`}
-        >
-          <Home size={15} aria-hidden />
-          Todas
-        </button>
-        {camino.map((f) => (
-          <span key={f.id} className="flex items-center gap-0.5">
-            <ChevronRight size={14} className="text-muted" aria-hidden />
-            <button
-              type="button"
-              onClick={() => setCarpetaActual(f.id)}
-              className={`h-9 max-w-40 truncate rounded-lg px-2.5 transition-colors ${
-                carpetaActual === f.id ? "text-text" : "text-muted hover:bg-surface-2"
-              }`}
-            >
-              {f.name}
-            </button>
-          </span>
-        ))}
-      </nav>
 
       <div className="flex flex-wrap items-center gap-2">
         <input
@@ -193,7 +262,7 @@ export function BuildsLibrary({
         <div className="ml-auto flex gap-2">
           <button
             type="button"
-            onClick={nuevaCarpeta}
+            onClick={() => nuevaCarpeta(null)}
             className="flex h-10 items-center gap-1.5 rounded-lg border border-border px-3 text-sm hover:bg-surface-2"
           >
             <FolderPlus size={15} aria-hidden />
@@ -201,8 +270,8 @@ export function BuildsLibrary({
           </button>
           <button
             type="button"
-            onClick={nuevaBuild}
-            className="flex h-10 items-center gap-1.5 rounded-lg bg-accent px-3 text-sm font-medium text-accent-fg hover:bg-accent-hover"
+            onClick={() => nuevaBuild(null)}
+            className="flex h-10 items-center gap-1.5 rounded-lg bg-accent px-3 text-sm font-medium text-accent-fg hover:bg-accent-hover active:translate-y-px"
           >
             <Plus size={15} aria-hidden />
             Nueva build
@@ -210,118 +279,29 @@ export function BuildsLibrary({
         </div>
       </div>
 
-      {/* Subcarpetas como fichas chatas: ocupan una fila, no una columna. */}
-      {!buscando && subcarpetas.length > 0 && (
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-          {subcarpetas.map((f) => {
-            const dentro = countFolderChildren(f.id, folders, builds);
-            return (
-              <li key={f.id}>
-                <div className="group flex h-11 items-center gap-2 rounded-lg border border-border bg-surface px-2.5 hover:border-accent">
-                  <button
-                    type="button"
-                    onClick={() => setCarpetaActual(f.id)}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
-                  >
-                    <Folder size={16} className="shrink-0 text-muted" aria-hidden />
-                    <span className="truncate">{f.name}</span>
-                    <span className="shrink-0 text-xs tabular-nums text-muted">
-                      {dentro.builds}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setConfirm({
-                        tipo: "carpeta",
-                        folder: f,
-                        subcarpetas: dentro.folders,
-                        buildsDentro: dentro.builds,
-                      })
-                    }
-                    aria-label={`Borrar carpeta ${f.name}`}
-                    className="flex size-7 shrink-0 items-center justify-center rounded text-muted opacity-0 transition-opacity hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
-                  >
-                    <Trash2 size={14} aria-hidden />
-                  </button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      {visibles.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted">
-          {builds.length === 0
-            ? "Todavía no tenés builds. Creá la primera."
-            : buscando
-              ? "Ninguna build coincide con el filtro."
-              : "Esta carpeta no tiene builds."}
-        </div>
+      {buscando ? (
+        // Buscando no hay carpetas: los resultados vienen de toda la
+        // biblioteca, y cada uno dice de qué carpeta salió.
+        resultados.length === 0 ? (
+          <Vacio>Ninguna build coincide con el filtro.</Vacio>
+        ) : (
+          listaDeBuilds(resultados)
+        )
       ) : (
-        <ul className="space-y-1.5">
-          {visibles.map((build) => (
-            <li key={build.id}>
-              <div
-                className="flex min-h-14 flex-wrap items-center gap-2 rounded-lg border border-border px-2.5 py-1.5"
-                style={
-                  build.color
-                    ? { background: `${build.color}1f`, borderColor: `${build.color}55` }
-                    : undefined
-                }
-              >
-                <div className="flex shrink-0 gap-1">
-                  {(["mainhand", "offhand", "head", "armor", "shoes"] as const).map((slot) =>
-                    build.items[slot] ? (
-                      <ItemIcon key={slot} item={build.items[slot]} size={28} />
-                    ) : (
-                      <span
-                        key={slot}
-                        className="size-7 shrink-0 rounded border border-dashed border-border"
-                      />
-                    ),
-                  )}
-                </div>
+        <div className="space-y-4">
+          {raiz.length > 0 && (
+            <GrillaCarpetas carpetas={raiz} abiertas={abiertas} onAlternar={alternar} />
+          )}
 
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium" title={build.name}>
-                    {build.name}
-                  </p>
-                  <p className="truncate text-xs text-muted">
-                    {build.role_id ? roleById.get(build.role_id)?.name : "Sin rol"}
-                    {buscando && build.folder_id && folderById.get(build.folder_id)
-                      ? ` · ${folderById.get(build.folder_id)!.name}`
-                      : ""}
-                    {build.tags.length > 0 && ` · ${build.tags.join(", ")}`}
-                  </p>
-                </div>
+          {sueltas.length > 0 && listaDeBuilds(sueltas)}
 
-                <button
-                  type="button"
-                  onClick={() => setEditing(build)}
-                  className="h-9 shrink-0 rounded-lg border border-border px-3 text-sm hover:bg-surface-2"
-                >
-                  Editar
-                </button>
-                <button
-                  type="button"
-                  onClick={async () =>
-                    setConfirm({
-                      tipo: "build",
-                      build,
-                      usos: await countBuildUsage(build.id),
-                    })
-                  }
-                  aria-label={`Borrar ${build.name}`}
-                  className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted hover:text-danger"
-                >
-                  <Trash2 size={15} aria-hidden />
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+          {raiz.length === 0 && sueltas.length === 0 && (
+            <Vacio>
+              Todavía no tenés builds ni carpetas. Creá la primera con los botones de
+              arriba.
+            </Vacio>
+          )}
+        </div>
       )}
 
       {editing && (
@@ -344,6 +324,116 @@ export function BuildsLibrary({
           }}
         />
       )}
+    </div>
+  );
+}
+
+/** «2 carpetas · 9 builds», que es lo que hace falta saber sin abrirla. */
+function describir({ folders, builds }: { folders: number; builds: number }): string {
+  const partes: string[] = [];
+  if (folders > 0) partes.push(`${folders} carpeta${folders === 1 ? "" : "s"}`);
+  if (builds > 0) partes.push(`${builds} build${builds === 1 ? "" : "s"}`);
+  return partes.length > 0 ? partes.join(" · ") : "Vacía";
+}
+
+function Vacio({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted">
+      {children}
+    </div>
+  );
+}
+
+function BotonesDeCreacion({
+  onCarpeta,
+  onBuild,
+}: {
+  onCarpeta: () => void;
+  onBuild: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <button
+        type="button"
+        onClick={onBuild}
+        className="flex h-10 items-center gap-1.5 rounded-lg px-2.5 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-text"
+      >
+        <Plus size={15} aria-hidden />
+        Nueva build acá
+      </button>
+      <button
+        type="button"
+        onClick={onCarpeta}
+        className="flex h-10 items-center gap-1.5 rounded-lg px-2.5 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-text"
+      >
+        <FolderPlus size={15} aria-hidden />
+        Subcarpeta
+      </button>
+    </div>
+  );
+}
+
+function FilaBuild({
+  build,
+  rolNombre,
+  carpetaNombre,
+  onEditar,
+  onBorrar,
+}: {
+  build: Build;
+  rolNombre: string | undefined;
+  carpetaNombre: string | undefined;
+  onEditar: () => void;
+  onBorrar: () => void;
+}) {
+  return (
+    <div
+      className="flex min-h-14 flex-wrap items-center gap-2 rounded-lg border border-border px-2.5 py-1.5"
+      style={
+        build.color
+          ? { background: tinteDeFila(build.color), borderColor: bordeDeFila(build.color) }
+          : undefined
+      }
+    >
+      <div className="flex shrink-0 gap-1">
+        {(["mainhand", "offhand", "head", "armor", "shoes"] as const).map((slot) =>
+          build.items[slot] ? (
+            <ItemIcon key={slot} item={build.items[slot]} size={28} />
+          ) : (
+            <span
+              key={slot}
+              className="size-7 shrink-0 rounded border border-dashed border-border"
+            />
+          ),
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium" title={build.name}>
+          {build.name}
+        </p>
+        <p className="truncate text-xs text-muted">
+          {rolNombre ?? "Sin rol"}
+          {carpetaNombre ? ` · ${carpetaNombre}` : ""}
+          {build.tags.length > 0 && ` · ${build.tags.join(", ")}`}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={onEditar}
+        className="h-9 shrink-0 rounded-lg border border-border px-3 text-sm hover:bg-surface-2"
+      >
+        Editar
+      </button>
+      <button
+        type="button"
+        onClick={onBorrar}
+        aria-label={`Borrar ${build.name}`}
+        className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted hover:text-danger"
+      >
+        <Trash2 size={15} aria-hidden />
+      </button>
     </div>
   );
 }

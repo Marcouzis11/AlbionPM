@@ -1,22 +1,23 @@
 "use client";
 
-import { ChevronRight, Folder, FolderOpen, Lock, Plus } from "lucide-react";
+import { Lock, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useState, useTransition } from "react";
 
 import { createContent, type ContentState } from "@/app/actions/contents";
 import { createComposition, type Plantilla } from "@/app/actions/compositions";
+import { GrillaCarpetas, type FichaDeCarpeta } from "@/components/carpetas";
 import type { Content } from "@/lib/data/contents";
 import type { CompositionSummary } from "@/lib/data/compositions";
 
 /**
- * Party Maker: los contenidos como carpetas que se abren.
+ * Party Maker: los contenidos son carpetas.
  *
- * Cada contenido —Gankeo, CTA, Castillo— es un bloque. Al tocarlo se despliega
- * y muestra sus composiciones sin sacarte de la pantalla: podés mirar dentro de
- * dos contenidos a la vez y comparar, que es lo que hacés cuando buscás una
- * comp vieja para reutilizar.
+ * Cada contenido —Gankeo, CTA, Castillo— es una carpeta en una grilla pareja.
+ * Al abrirla se despliegan sus composiciones ahí mismo, sin sacarte de la
+ * pantalla: podés tener dos abiertas a la vez y comparar, que es lo que hacés
+ * cuando buscás una comp vieja para reutilizar.
  */
 
 const EMPTY: ContentState = {};
@@ -40,12 +41,11 @@ export function PartyMaker({
   compositions: CompositionSummary[];
 }) {
   const [creando, setCreando] = useState(false);
-  const [abiertos, setAbiertos] = useState<Set<string>>(
-    // El primero arranca abierto: una pantalla de carpetas todas cerradas no
+  const [abiertas, setAbiertas] = useState<Set<string>>(
+    // La primera arranca abierta: una pantalla de carpetas todas cerradas no
     // muestra nada de lo que la persona vino a buscar.
     () => new Set(contents.length > 0 ? [contents[0].id] : []),
   );
-  const [nuevaEn, setNuevaEn] = useState<string | null>(null);
   const [state, action, pending] = useActionState(createContent, EMPTY);
 
   const porContenido = new Map<string, CompositionSummary[]>();
@@ -57,13 +57,34 @@ export function PartyMaker({
   }
 
   function alternar(id: string) {
-    setAbiertos((previo) => {
+    setAbiertas((previo) => {
       const siguiente = new Set(previo);
       if (siguiente.has(id)) siguiente.delete(id);
       else siguiente.add(id);
       return siguiente;
     });
   }
+
+  const carpetas: FichaDeCarpeta[] = contents.map((content) => {
+    const suyas = porContenido.get(content.id) ?? [];
+    return {
+      id: content.id,
+      nombre: content.name,
+      color: content.color,
+      detalle:
+        suyas.length === 0
+          ? "Sin composiciones"
+          : `${suyas.length} composición${suyas.length === 1 ? "" : "es"}`,
+      panel: () => (
+        <ContenidoAbierto
+          contentId={content.id}
+          contentName={content.name}
+          gameSlug={gameSlug}
+          compositions={suyas}
+        />
+      ),
+    };
+  });
 
   return (
     <div className="space-y-5">
@@ -79,7 +100,7 @@ export function PartyMaker({
           <button
             type="button"
             onClick={() => setCreando(true)}
-            className="flex h-11 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+            className="flex h-11 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover active:translate-y-px"
           >
             <Plus size={16} aria-hidden />
             Nuevo contenido
@@ -130,155 +151,85 @@ export function PartyMaker({
 
       {contents.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-10 text-center">
-          <Folder size={28} className="mx-auto text-muted" aria-hidden />
-          <p className="mt-3 font-medium">Todavía no tenés contenidos</p>
+          <p className="font-medium">Todavía no tenés contenidos</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted">
             Un contenido agrupa las composiciones de un mismo tipo de actividad.
             Creá los que uses en tu gremio: Gankeo, CTA, Castillo, Avaloniana.
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {contents.map((content) => (
-            <TarjetaContenido
-              key={content.id}
-              content={content}
-              gameSlug={gameSlug}
-              compositions={porContenido.get(content.id) ?? []}
-              abierto={abiertos.has(content.id)}
-              onAlternar={() => alternar(content.id)}
-              creandoComp={nuevaEn === content.id}
-              onCrearComp={() => setNuevaEn(content.id)}
-              onCerrarCrear={() => setNuevaEn(null)}
-            />
-          ))}
-        </div>
+        <GrillaCarpetas carpetas={carpetas} abiertas={abiertas} onAlternar={alternar} />
       )}
     </div>
   );
 }
 
-function TarjetaContenido({
-  content,
+/** Lo que hay dentro de un contenido abierto: sus composiciones. */
+function ContenidoAbierto({
+  contentId,
+  contentName,
   gameSlug,
   compositions,
-  abierto,
-  onAlternar,
-  creandoComp,
-  onCrearComp,
-  onCerrarCrear,
 }: {
-  content: Content;
+  contentId: string;
+  contentName: string;
   gameSlug: string;
   compositions: CompositionSummary[];
-  abierto: boolean;
-  onAlternar: () => void;
-  creandoComp: boolean;
-  onCrearComp: () => void;
-  onCerrarCrear: () => void;
 }) {
-  const color = content.color ?? "var(--muted)";
+  const [creando, setCreando] = useState(false);
 
   return (
-    <section
-      className="overflow-hidden rounded-xl border border-border bg-surface"
-      style={{ borderLeft: `3px solid ${color}` }}
-    >
-      <h2>
+    <>
+      {compositions.length === 0 && !creando && (
+        <p className="px-1 pb-2 text-sm text-muted">
+          Todavía no hay composiciones en {contentName}.
+        </p>
+      )}
+
+      {/* Entran escalonadas: se ve que salieron de la carpeta que abriste. */}
+      <ul className="aparece-escalonado space-y-1">
+        {compositions.map((comp) => (
+          <li key={comp.id}>
+            <Link
+              href={`/app/${gameSlug}/comp/${comp.id}`}
+              className="flex min-h-11 items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-surface-2"
+            >
+              {comp.is_archived && (
+                <Lock size={13} className="shrink-0 text-accent" aria-label="Archivada" />
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm">{comp.name}</span>
+                {comp.description && (
+                  <span className="block truncate text-xs text-muted">
+                    {comp.description}
+                  </span>
+                )}
+              </span>
+              <span className="shrink-0 text-xs tabular-nums text-muted">
+                {formatearCorta(comp.event_at, comp.event_tz)}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+
+      {creando ? (
+        <NuevaComposicion
+          contentId={contentId}
+          gameSlug={gameSlug}
+          onCancelar={() => setCreando(false)}
+        />
+      ) : (
         <button
           type="button"
-          onClick={onAlternar}
-          aria-expanded={abierto}
-          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-2"
+          onClick={() => setCreando(true)}
+          className="mt-1 flex h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-sm text-muted transition-colors hover:bg-surface-2 hover:text-text"
         >
-          <span
-            aria-hidden
-            className="shrink-0"
-            style={{ color }}
-          >
-            {abierto ? <FolderOpen size={20} /> : <Folder size={20} />}
-          </span>
-
-          <span className="min-w-0 flex-1">
-            <span className="block truncate font-medium">{content.name}</span>
-            <span className="block text-xs text-muted">
-              {compositions.length === 0
-                ? "Sin composiciones"
-                : `${compositions.length} composición${compositions.length === 1 ? "" : "es"}`}
-            </span>
-          </span>
-
-          <ChevronRight
-            size={18}
-            aria-hidden
-            className={`shrink-0 text-muted transition-transform duration-200 motion-reduce:transition-none ${
-              abierto ? "rotate-90" : ""
-            }`}
-          />
+          <Plus size={15} aria-hidden />
+          Nueva composición
         </button>
-      </h2>
-
-      {/* La apertura anima la fila de la grilla de 0fr a 1fr. Es la forma de
-          animar «alto automático» sin saltos ni alturas inventadas a mano. */}
-      <div
-        className={`grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none ${
-          abierto ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-        }`}
-      >
-        <div className="overflow-hidden">
-          <div className="border-t border-border px-3 py-2">
-            {compositions.length === 0 && !creandoComp && (
-              <p className="px-1 py-3 text-sm text-muted">
-                Todavía no hay composiciones en {content.name}.
-              </p>
-            )}
-
-            <ul className="space-y-1">
-              {compositions.map((comp) => (
-                <li key={comp.id}>
-                  <Link
-                    href={`/app/${gameSlug}/comp/${comp.id}`}
-                    className="flex min-h-11 items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-surface-2"
-                  >
-                    {comp.is_archived && (
-                      <Lock size={13} className="shrink-0 text-accent" aria-label="Archivada" />
-                    )}
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm">{comp.name}</span>
-                      {comp.description && (
-                        <span className="block truncate text-xs text-muted">
-                          {comp.description}
-                        </span>
-                      )}
-                    </span>
-                    <span className="shrink-0 text-xs tabular-nums text-muted">
-                      {formatearCorta(comp.event_at, comp.event_tz)}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-
-            {creandoComp ? (
-              <NuevaComposicion
-                contentId={content.id}
-                gameSlug={gameSlug}
-                onCancelar={onCerrarCrear}
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={onCrearComp}
-                className="mt-1 flex h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-sm text-muted transition-colors hover:bg-surface-2 hover:text-text"
-              >
-                <Plus size={15} aria-hidden />
-                Nueva composición
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    </section>
+      )}
+    </>
   );
 }
 
