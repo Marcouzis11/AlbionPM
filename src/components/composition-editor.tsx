@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Star, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Star, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
@@ -11,6 +11,7 @@ import {
   deleteSlot,
   emptyComposition,
   setLeader,
+  swapGroups,
   updateComposition,
   updateGroup,
   updateSlot,
@@ -110,17 +111,27 @@ export function CompositionEditor({
 
       {/* Dos grupos por fila desde pantallas grandes; uno en el resto. */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {composition.groups.map((group) => (
-          <TarjetaGrupo
-            key={group.id}
-            group={group}
-            builds={builds}
-            roles={roles}
-            buildById={buildById}
-            bloqueado={bloqueado}
-            onRun={run}
-          />
-        ))}
+        {composition.groups.map((group, indice) => {
+          const anterior = composition.groups[indice - 1];
+          const siguiente = composition.groups[indice + 1];
+          return (
+            <TarjetaGrupo
+              key={group.id}
+              group={group}
+              builds={builds}
+              roles={roles}
+              buildById={buildById}
+              bloqueado={bloqueado}
+              onRun={run}
+              onAdelantar={
+                anterior && (() => run(() => swapGroups(group, anterior)))
+              }
+              onAtrasar={
+                siguiente && (() => run(() => swapGroups(group, siguiente)))
+              }
+            />
+          );
+        })}
 
         {!bloqueado && (
           <button
@@ -155,6 +166,8 @@ function TarjetaGrupo({
   buildById,
   bloqueado,
   onRun,
+  onAdelantar,
+  onAtrasar,
 }: {
   group: CompGroup;
   builds: Build[];
@@ -162,6 +175,9 @@ function TarjetaGrupo({
   buildById: Map<string, Build>;
   bloqueado: boolean;
   onRun: (fn: () => Promise<unknown>) => void;
+  /** `undefined` cuando ya es el primero o el último. */
+  onAdelantar: (() => void) | undefined;
+  onAtrasar: (() => void) | undefined;
 }) {
   const confirmados = group.slots.filter((s) => (s.player_name ?? "").trim() !== "").length;
 
@@ -193,14 +209,39 @@ function TarjetaGrupo({
         </span>
 
         {!bloqueado && (
-          <button
-            type="button"
-            onClick={() => onRun(() => deleteGroup(group.id))}
-            aria-label={`Borrar ${group.name ?? "grupo"}`}
-            className="ml-auto flex size-8 items-center justify-center rounded text-muted hover:text-danger"
-          >
-            <Trash2 size={15} aria-hidden />
-          </button>
+          <div className="ml-auto flex items-center gap-0.5">
+            {/* Reordenar de a un lugar. Un grupo son veinte personas: mover el
+                bloque entero es lo que se hace cuando la comp ya está armada y
+                cambia quién entra primero. */}
+            <button
+              type="button"
+              onClick={onAdelantar}
+              disabled={!onAdelantar}
+              aria-label={`Adelantar ${group.name ?? "el grupo"}`}
+              title="Adelantar"
+              className="flex size-8 items-center justify-center rounded text-muted transition-colors hover:text-text disabled:opacity-25 disabled:hover:text-muted"
+            >
+              <ChevronLeft size={15} aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={onAtrasar}
+              disabled={!onAtrasar}
+              aria-label={`Atrasar ${group.name ?? "el grupo"}`}
+              title="Atrasar"
+              className="flex size-8 items-center justify-center rounded text-muted transition-colors hover:text-text disabled:opacity-25 disabled:hover:text-muted"
+            >
+              <ChevronRight size={15} aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => onRun(() => deleteGroup(group.id))}
+              aria-label={`Borrar ${group.name ?? "grupo"}`}
+              className="flex size-8 items-center justify-center rounded text-muted transition-colors hover:text-danger"
+            >
+              <Trash2 size={15} aria-hidden />
+            </button>
+          </div>
         )}
       </header>
 

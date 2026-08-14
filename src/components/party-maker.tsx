@@ -8,10 +8,16 @@ import { useActionState, useState, useTransition } from "react";
 import {
   createContent,
   deleteContentWithCompositions,
+  renameContent,
   type ContentState,
 } from "@/app/actions/contents";
-import { createComposition, type Plantilla } from "@/app/actions/compositions";
+import {
+  createComposition,
+  moveComposition,
+  type Plantilla,
+} from "@/app/actions/compositions";
 import { GrillaCarpetas, type FichaDeCarpeta } from "@/components/carpetas";
+import { MoverA } from "@/components/mover-a";
 import { colorSugerido, PALETA_CONTENIDOS } from "@/lib/color";
 import type { Content } from "@/lib/data/contents";
 import type { CompositionSummary } from "@/lib/data/compositions";
@@ -44,9 +50,19 @@ export function PartyMaker({
   contents: Content[];
   compositions: CompositionSummary[];
 }) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
   const [creando, setCreando] = useState(false);
   const [borrando, setBorrando] = useState<ABorrar | null>(null);
+
   const [state, action, pending] = useActionState(createContent, EMPTY);
+
+  function correr(fn: () => Promise<unknown>) {
+    startTransition(async () => {
+      await fn();
+      router.refresh();
+    });
+  }
 
   const porContenido = new Map<string, CompositionSummary[]>();
   for (const comp of compositions) {
@@ -66,12 +82,15 @@ export function PartyMaker({
         suyas.length === 0
           ? "Sin composiciones"
           : `${suyas.length} composición${suyas.length === 1 ? "" : "es"}`,
+      onRenombrar: (nombre) => correr(() => renameContent(content.id, nombre)),
       panel: () => (
         <ContenidoAbierto
           contentId={content.id}
           contentName={content.name}
           gameSlug={gameSlug}
           compositions={suyas}
+          otrosContenidos={contents.filter((otro) => otro.id !== content.id)}
+          onMover={(compId, destino) => correr(() => moveComposition(compId, destino))}
         />
       ),
       accion: (
@@ -393,11 +412,15 @@ function ContenidoAbierto({
   contentName,
   gameSlug,
   compositions,
+  otrosContenidos,
+  onMover,
 }: {
   contentId: string;
   contentName: string;
   gameSlug: string;
   compositions: CompositionSummary[];
+  otrosContenidos: Content[];
+  onMover: (composicionId: string, contenidoDestino: string) => void;
 }) {
   const [creando, setCreando] = useState(false);
 
@@ -412,10 +435,13 @@ function ContenidoAbierto({
       {/* Entran escalonadas: se ve que salieron de la carpeta que abriste. */}
       <ul className="aparece-escalonado space-y-1">
         {compositions.map((comp) => (
-          <li key={comp.id}>
+          <li
+            key={comp.id}
+            className="flex min-h-11 items-center gap-1 rounded-lg pr-1 transition-colors hover:bg-surface-2"
+          >
             <Link
               href={`/app/${gameSlug}/comp/${comp.id}`}
-              className="flex min-h-11 items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-surface-2"
+              className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5"
             >
               {comp.is_archived && (
                 <Lock size={13} className="shrink-0 text-accent" aria-label="Archivada" />
@@ -432,6 +458,17 @@ function ContenidoAbierto({
                 {formatearCorta(comp.event_at, comp.event_tz)}
               </span>
             </Link>
+
+            {otrosContenidos.length > 0 && (
+              <MoverA
+                etiqueta={`Mover ${comp.name} a otra carpeta`}
+                destinos={otrosContenidos.map((otro) => ({
+                  id: otro.id,
+                  nombre: otro.name,
+                }))}
+                onMover={(destino) => onMover(comp.id, destino)}
+              />
+            )}
           </li>
         ))}
       </ul>

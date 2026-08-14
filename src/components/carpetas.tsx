@@ -33,8 +33,14 @@ export type FichaDeCarpeta = {
   color?: string | null;
   /** Lo que se ve al abrirla. Es una función: no se arma si está cerrada. */
   panel: () => React.ReactNode;
-  /** Acción secundaria —borrar, renombrar—. Aparece al pasar por encima. */
+  /** Acción secundaria —borrar—. Aparece al pasar por encima de la ficha. */
   accion?: React.ReactNode;
+  /**
+   * Si se puede renombrar, el nombre del encabezado del panel pasa a ser un
+   * campo editable. Se guarda al salir del campo y con Enter, no con un botón
+   * de guardar: es un solo dato y un botón aparte solo agregaría un paso.
+   */
+  onRenombrar?: (nombre: string) => void;
 };
 
 /** Lo que tarda el panel en abrirse y cerrarse. El CSS usa el mismo número. */
@@ -235,9 +241,34 @@ function CuerpoPanel({
         <span style={{ color }}>
           <FolderOpen size={16} aria-hidden />
         </span>
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">
-          {carpeta.nombre}
-        </span>
+        {carpeta.onRenombrar ? (
+          <input
+            // La `key` hace que el campo tome el nombre nuevo cuando el
+            // servidor confirma; sin ella conservaría el valor que tenía al
+            // montarse y mostraría el viejo tras un refresco.
+            key={carpeta.nombre}
+            defaultValue={carpeta.nombre}
+            aria-label={`Nombre de ${carpeta.nombre}`}
+            maxLength={60}
+            onBlur={(event) => {
+              const limpio = event.target.value.trim();
+              if (limpio && limpio !== carpeta.nombre) carpeta.onRenombrar?.(limpio);
+              else event.target.value = carpeta.nombre;
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.currentTarget.blur();
+              if (event.key === "Escape") {
+                event.currentTarget.value = carpeta.nombre;
+                event.currentTarget.blur();
+              }
+            }}
+            className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-sm font-medium transition-colors hover:border-border focus:border-border"
+          />
+        ) : (
+          <span className="min-w-0 flex-1 truncate text-sm font-medium">
+            {carpeta.nombre}
+          </span>
+        )}
         <span className="hidden text-xs text-muted sm:block">{carpeta.detalle}</span>
         <button
           type="button"

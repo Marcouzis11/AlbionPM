@@ -133,12 +133,44 @@ export async function addGroup(compositionId: string): Promise<CompState> {
 
 export async function updateGroup(
   id: string,
-  patch: { name?: string | null; guild_name?: string | null },
+  patch: { name?: string | null; guild_name?: string | null; position?: number },
 ): Promise<CompState> {
   const supabase = await createClient();
   const { error } = await supabase.from("comp_groups").update(patch).eq("id", id);
 
   if (error) return { error: traducir(error.message) };
+  revalidatePath("/app", "layout");
+  return {};
+}
+
+/**
+ * Intercambia un grupo con su vecino, para reordenarlos.
+ *
+ * Se mandan las dos posiciones y no un "subir uno": el cliente ya sabe el orden
+ * que está viendo, y calcularlo de nuevo en el servidor abriría la puerta a que
+ * las dos versiones no coincidan.
+ */
+export async function swapGroups(
+  a: { id: string; position: number },
+  b: { id: string; position: number },
+): Promise<CompState> {
+  const supabase = await createClient();
+
+  // Sin transacción propia: si el segundo update fallara, los dos grupos
+  // quedarían en la misma posición. Es un empate de orden, no una pérdida de
+  // datos, y la lista se sigue pudiendo reordenar.
+  const primero = await supabase
+    .from("comp_groups")
+    .update({ position: b.position })
+    .eq("id", a.id);
+  if (primero.error) return { error: traducir(primero.error.message) };
+
+  const segundo = await supabase
+    .from("comp_groups")
+    .update({ position: a.position })
+    .eq("id", b.id);
+  if (segundo.error) return { error: traducir(segundo.error.message) };
+
   revalidatePath("/app", "layout");
   return {};
 }
@@ -309,6 +341,28 @@ export async function duplicateComposition(
  * nombres. Es lo que se usa para reutilizar la estructura de una CTA en la
  * siguiente.
  */
+/**
+ * Mueve una composición a otro contenido.
+ *
+ * Distinto de `duplicateComposition` con destino: aquella deja una copia y esta
+ * la saca de donde estaba. Mover es lo que querés cuando la guardaste en el
+ * contenido equivocado; duplicar, cuando querés la misma comp en dos lados.
+ */
+export async function moveComposition(
+  id: string,
+  contentId: string,
+): Promise<CompState> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("compositions")
+    .update({ content_id: contentId })
+    .eq("id", id);
+
+  if (error) return { error: traducir(error.message) };
+  revalidatePath("/app", "layout");
+  return {};
+}
+
 export async function emptyComposition(id: string): Promise<CompState> {
   const supabase = await createClient();
 

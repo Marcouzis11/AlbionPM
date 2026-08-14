@@ -92,6 +92,74 @@ export async function renameFolder(id: string, name: string): Promise<ActionStat
 }
 
 /**
+ * Mueve una build a otra carpeta. `null` la deja suelta en la raíz.
+ *
+ * No hay validación de destino más allá de las políticas de la base: una build
+ * puede vivir en cualquier carpeta del mismo juego, y no hay ciclos posibles
+ * porque una build nunca contiene nada.
+ */
+export async function moveBuild(
+  id: string,
+  folderId: string | null,
+): Promise<ActionState> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("builds")
+    .update({ folder_id: folderId })
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/app", "layout");
+  return {};
+}
+
+/**
+ * Mueve una carpeta dentro de otra. `null` la lleva a la raíz.
+ *
+ * Acá SÍ hay que validar: meter una carpeta dentro de sí misma o dentro de una
+ * de sus propias descendientes desengancharía esa rama del árbol. Seguiría
+ * existiendo en la base, pero no habría forma de llegar a ella desde la raíz,
+ * y con ella se irían todas sus builds. La base no lo impide, así que se
+ * comprueba acá recorriendo la cadena de padres del destino.
+ */
+export async function moveFolder(
+  id: string,
+  parentId: string | null,
+): Promise<ActionState> {
+  if (id === parentId) {
+    return { error: "Una carpeta no puede ir dentro de sí misma." };
+  }
+
+  const supabase = await createClient();
+
+  if (parentId !== null) {
+    const { data: carpetas, error: errorLectura } = await supabase
+      .from("build_folders")
+      .select("id, parent_id");
+
+    if (errorLectura) return { error: errorLectura.message };
+
+    const padreDe = new Map((carpetas ?? []).map((c) => [c.id, c.parent_id]));
+    let actual: string | null = parentId;
+    while (actual !== null) {
+      if (actual === id) {
+        return { error: "No podés meter una carpeta dentro de una de sus subcarpetas." };
+      }
+      actual = padreDe.get(actual) ?? null;
+    }
+  }
+
+  const { error } = await supabase
+    .from("build_folders")
+    .update({ parent_id: parentId })
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/app", "layout");
+  return {};
+}
+
+/**
  * Borra una carpeta.
  *
  * `rescatar` mueve subcarpetas y builds un nivel arriba en vez de perderlas.

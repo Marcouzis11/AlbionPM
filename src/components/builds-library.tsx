@@ -10,11 +10,15 @@ import {
   createFolder,
   deleteBuild,
   deleteFolder,
+  moveBuild,
+  moveFolder,
+  renameFolder,
 } from "@/app/actions/builds";
 import { BuildEditor } from "@/components/build-editor";
 import { GrillaCarpetas, type FichaDeCarpeta } from "@/components/carpetas";
 import type { UsedColor } from "@/components/color-picker";
 import { ItemIcon } from "@/components/item-icon";
+import { MoverA, type Destino } from "@/components/mover-a";
 import {
   countFolderChildren,
   type Build,
@@ -22,6 +26,9 @@ import {
   type Role,
 } from "@/lib/builds-shared";
 import { bordeDeFila, tinteDeFila } from "@/lib/color";
+
+/** Marca «sacar de toda carpeta»: el menú necesita un valor, y `null` no sirve. */
+const RAIZ = "__raiz__";
 
 /**
  * Biblioteca de builds.
@@ -74,6 +81,40 @@ export function BuildsLibrary({
 
   const buscando = query.trim() !== "" || roleFilter !== "" || tagFilter !== "";
 
+  /** La ruta de cada carpeta, para distinguir tres «Gankeo» en tres ramas. */
+  const rutaDe = useMemo(() => {
+    const porId = new Map(folders.map((f) => [f.id, f]));
+    const salida = new Map<string, string>();
+    for (const folder of folders) {
+      const partes: string[] = [];
+      let actual = folder.parent_id;
+      // Tope por si un dato inconsistente dejara un ciclo: sin esto el bucle
+      // colgaría la pestaña en vez de mostrar una ruta incompleta.
+      let vueltas = 0;
+      while (actual && vueltas < 50) {
+        const padre = porId.get(actual);
+        if (!padre) break;
+        partes.unshift(padre.name);
+        actual = padre.parent_id;
+        vueltas += 1;
+      }
+      salida.set(folder.id, partes.join(" / "));
+    }
+    return salida;
+  }, [folders]);
+
+  /** Los destinos posibles para algo que hoy vive en `origen`. */
+  function destinos(origen: string | null, excluir?: string): Destino[] {
+    const lista: Destino[] = folders
+      .filter((f) => f.id !== origen && f.id !== excluir)
+      .map((f) => ({ id: f.id, nombre: f.name, ruta: rutaDe.get(f.id) || undefined }));
+
+    // La raíz también es un destino: sin esto, algo que entró a una carpeta no
+    // puede volver a salir.
+    if (origen !== null) lista.unshift({ id: RAIZ, nombre: "Todas las builds" });
+    return lista;
+  }
+
   /** Buscar mira TODA la biblioteca: si hay que acordarse en qué carpeta quedó
       algo para poder encontrarlo, el buscador no sirve. */
   const resultados = useMemo(() => {
@@ -103,6 +144,13 @@ export function BuildsLibrary({
     });
   }
 
+  function correr(fn: () => Promise<unknown>) {
+    startTransition(async () => {
+      await fn();
+      router.refresh();
+    });
+  }
+
   async function pedirBorrarBuild(build: Build) {
     setConfirm({ tipo: "build", build, usos: await countBuildUsage(build.id) });
   }
@@ -114,6 +162,10 @@ export function BuildsLibrary({
           <li key={build.id}>
             <FilaBuild
               build={build}
+              destinos={destinos(build.folder_id)}
+              onMover={(destino) =>
+                correr(() => moveBuild(build.id, destino === RAIZ ? null : destino))
+              }
               rolNombre={build.role_id ? roleById.get(build.role_id)?.name : undefined}
               carpetaNombre={
                 buscando && build.folder_id
@@ -140,8 +192,17 @@ export function BuildsLibrary({
           id: f.id,
           nombre: f.name,
           detalle: describir(dentro),
+          onRenombrar: (nombre) => correr(() => renameFolder(f.id, nombre)),
           panel: () => contenidoDeCarpeta(f.id),
           accion: (
+            <div className="flex items-center gap-0.5 rounded-lg bg-surface/90">
+              <MoverA
+                etiqueta={`Mover la carpeta ${f.name}`}
+                destinos={destinos(f.parent_id, f.id)}
+                onMover={(destino) =>
+                  correr(() => moveFolder(f.id, destino === RAIZ ? null : destino))
+                }
+              />
             <button
               type="button"
               onClick={() =>
@@ -153,10 +214,11 @@ export function BuildsLibrary({
                 })
               }
               aria-label={`Borrar carpeta ${f.name}`}
-              className="flex size-7 items-center justify-center rounded-lg bg-surface/90 text-muted transition-colors hover:text-danger"
+              className="flex size-8 items-center justify-center rounded-lg text-muted transition-colors hover:text-danger"
             >
               <Trash2 size={14} aria-hidden />
             </button>
+            </div>
           ),
         };
       });
@@ -360,12 +422,16 @@ function BotonesDeCreacion({
 
 function FilaBuild({
   build,
+  destinos,
+  onMover,
   rolNombre,
   carpetaNombre,
   onEditar,
   onBorrar,
 }: {
   build: Build;
+  destinos: Destino[];
+  onMover: (destinoId: string) => void;
   rolNombre: string | undefined;
   carpetaNombre: string | undefined;
   onEditar: () => void;
@@ -403,6 +469,12 @@ function FilaBuild({
           {build.tags.length > 0 && ` · ${build.tags.join(", ")}`}
         </p>
       </div>
+
+      <MoverA
+        etiqueta={`Mover ${build.name} a otra carpeta`}
+        destinos={destinos}
+        onMover={onMover}
+      />
 
       <button
         type="button"
