@@ -31,3 +31,25 @@ borrado equivocado es definitivo.
 Los servidores de desarrollo o de prueba que se levanten para verificar algo
 tienen que apagarse al terminar. La aplicación vive en Vercel; la máquina de
 Marcos solo se usa para escribir código.
+
+**Al terminar cualquier tanda de trabajo, revisar que no quede nada corriendo**
+(`ps -eo pid,args | grep -E "next|node|sleep"`) y matar lo propio. Ya pasó dos
+veces que quedaran procesos colgados y los tuviera que señalar Marcos.
+
+### El bucle de espera que nunca termina
+
+No usar `pgrep -f` para esperar a que termine un proceso propio:
+
+```bash
+# MAL: el bucle se encuentra a sí mismo y espera para siempre.
+until ! pgrep -f "mi-script.mts"; do sleep 15; done
+```
+
+`pgrep -f` busca en la línea de comando completa de todos los procesos,
+incluida la del propio bucle, que contiene ese mismo texto. El bucle nunca
+termina, aunque el proceso real haya terminado hace rato.
+
+Para esperar a algo que se lanzó en segundo plano, usar la notificación de la
+herramienta, que llega sola cuando el comando sale. Si hace falta un bucle,
+esperar por un efecto observable —un archivo que aparece, un puerto que
+responde— y no por la ausencia de un proceso.
