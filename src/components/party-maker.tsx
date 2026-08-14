@@ -15,9 +15,8 @@ import type { CompositionSummary } from "@/lib/data/compositions";
  * Party Maker: los contenidos son carpetas.
  *
  * Cada contenido —Gankeo, CTA, Castillo— es una carpeta en una grilla pareja.
- * Al abrirla se despliegan sus composiciones ahí mismo, sin sacarte de la
- * pantalla: podés tener dos abiertas a la vez y comparar, que es lo que hacés
- * cuando buscás una comp vieja para reutilizar.
+ * Al abrirla, sus composiciones aparecen debajo de la grilla, sin sacarte de la
+ * pantalla y sin mover ninguna carpeta de lugar.
  */
 
 const EMPTY: ContentState = {};
@@ -41,11 +40,6 @@ export function PartyMaker({
   compositions: CompositionSummary[];
 }) {
   const [creando, setCreando] = useState(false);
-  const [abiertas, setAbiertas] = useState<Set<string>>(
-    // La primera arranca abierta: una pantalla de carpetas todas cerradas no
-    // muestra nada de lo que la persona vino a buscar.
-    () => new Set(contents.length > 0 ? [contents[0].id] : []),
-  );
   const [state, action, pending] = useActionState(createContent, EMPTY);
 
   const porContenido = new Map<string, CompositionSummary[]>();
@@ -54,15 +48,6 @@ export function PartyMaker({
       ...(porContenido.get(comp.content_id) ?? []),
       comp,
     ]);
-  }
-
-  function alternar(id: string) {
-    setAbiertas((previo) => {
-      const siguiente = new Set(previo);
-      if (siguiente.has(id)) siguiente.delete(id);
-      else siguiente.add(id);
-      return siguiente;
-    });
   }
 
   const carpetas: FichaDeCarpeta[] = contents.map((content) => {
@@ -158,7 +143,12 @@ export function PartyMaker({
           </p>
         </div>
       ) : (
-        <GrillaCarpetas carpetas={carpetas} abiertas={abiertas} onAlternar={alternar} />
+        <GrillaCarpetas
+          carpetas={carpetas}
+          // La primera arranca abierta: una pantalla de carpetas todas
+          // cerradas no muestra nada de lo que la persona vino a buscar.
+          inicialAbierta={contents[0]?.id ?? null}
+        />
       )}
     </div>
   );

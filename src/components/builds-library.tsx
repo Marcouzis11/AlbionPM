@@ -46,7 +46,6 @@ export function BuildsLibrary({
   const router = useRouter();
   const [, startTransition] = useTransition();
 
-  const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
@@ -87,15 +86,6 @@ export function BuildsLibrary({
       return true;
     });
   }, [builds, roleFilter, tagFilter, query, buscando]);
-
-  function alternar(id: string) {
-    setAbiertas((previo) => {
-      const siguiente = new Set(previo);
-      if (siguiente.has(id)) siguiente.delete(id);
-      else siguiente.add(id);
-      return siguiente;
-    });
-  }
 
   function nuevaCarpeta(parentId: string | null) {
     const name = window.prompt("Nombre de la carpeta");
@@ -183,12 +173,7 @@ export function BuildsLibrary({
     return (
       <div className="space-y-3">
         {subcarpetas.length > 0 && (
-          <GrillaCarpetas
-            carpetas={subcarpetas}
-            abiertas={abiertas}
-            onAlternar={alternar}
-            anidada
-          />
+          <GrillaCarpetas carpetas={subcarpetas} anidada />
         )}
 
         {propias.length > 0 ? (
@@ -290,7 +275,7 @@ export function BuildsLibrary({
       ) : (
         <div className="space-y-4">
           {raiz.length > 0 && (
-            <GrillaCarpetas carpetas={raiz} abiertas={abiertas} onAlternar={alternar} />
+            <GrillaCarpetas carpetas={raiz} />
           )}
 
           {sueltas.length > 0 && listaDeBuilds(sueltas)}

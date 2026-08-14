@@ -1,7 +1,7 @@
 "use client";
 
 import { Folder, FolderOpen, X } from "lucide-react";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 /**
  * Carpetas: la ficha, la grilla y la apertura en el lugar.
@@ -14,9 +14,15 @@ import { Fragment, useEffect, useRef, useState } from "react";
  * cuerpo debajo. Es lo que hace que se entienda sin leer nada que eso se abre
  * y tiene cosas adentro.
  *
- * Abrir NO te saca de la pantalla: el panel se despliega a lo ancho y empuja
- * al resto hacia abajo. Podés tener dos abiertas y comparar, que es lo que
- * hacés cuando buscás una composición vieja para reutilizar.
+ * Abrir NO te saca de la pantalla y TAMPOCO mueve las carpetas. El panel vive
+ * fuera de la grilla, siempre debajo: la fila de fichas se queda quieta y lo
+ * que hay adentro aparece siempre en el mismo lugar. Antes el panel era una
+ * celda más y se metía en el medio, así que abrir la primera carpeta empujaba
+ * a las otras cuatro fuera de la vista, que es justo lo que uno no quiere
+ * mientras compara.
+ *
+ * Por eso también hay una sola abierta por nivel: con el panel en un lugar
+ * fijo, dos abiertas apilarían dos paneles y volvería el mismo problema.
  */
 
 export type FichaDeCarpeta = {
@@ -36,77 +42,84 @@ const DURACION = 300;
 
 export function GrillaCarpetas({
   carpetas,
-  abiertas,
-  onAlternar,
+  inicialAbierta = null,
   anidada = false,
 }: {
   carpetas: FichaDeCarpeta[];
-  abiertas: Set<string>;
-  onAlternar: (id: string) => void;
+  /** Cuál arranca abierta. Sin esto, una pantalla de carpetas cerradas no
+      muestra nada de lo que la persona vino a buscar. */
+  inicialAbierta?: string | null;
   /** Una grilla dentro de un panel: fichas más chicas para marcar el nivel. */
   anidada?: boolean;
 }) {
-  // Una carpeta que se cierra sigue montada hasta que termina de plegarse. Sin
-  // esto desaparecería de golpe y solo se vería la animación de ida.
-  const [cerrando, setCerrando] = useState<Set<string>>(new Set());
-  const previas = useRef(abiertas);
+  // La selección vive acá adentro y no arriba: en Builds hay grillas dentro de
+  // grillas, y cada nivel tiene que poder tener la suya abierta sin cerrar la
+  // del nivel de arriba.
+  const [abierta, setAbierta] = useState<string | null>(inicialAbierta);
+
+  // La que se está cerrando sigue montada hasta terminar de plegarse. Sin esto
+  // desaparecería de golpe y solo se vería la animación de ida.
+  const [mostrando, setMostrando] = useState<string | null>(inicialAbierta);
+
+  function alternar(id: string) {
+    if (abierta === id) {
+      // Cerrar solo suelta la selección: el panel sigue montado hasta que el
+      // efecto de abajo lo desmonta, ya terminada la animación.
+      setAbierta(null);
+      return;
+    }
+    setAbierta(id);
+    setMostrando(id);
+  }
 
   useEffect(() => {
-    const salieron = [...previas.current].filter((id) => !abiertas.has(id));
-    previas.current = abiertas;
-    if (salieron.length === 0) return;
-
-    setCerrando((previo) => new Set([...previo, ...salieron]));
+    if (abierta !== null) return;
     // Un temporizador y no `transitionend`: con `prefers-reduced-motion` no hay
     // transición, el evento nunca llega y el panel quedaría montado para
-    // siempre, ocupando una fila invisible de la grilla.
-    const timer = setTimeout(() => {
-      setCerrando((previo) => {
-        const siguiente = new Set(previo);
-        for (const id of salieron) siguiente.delete(id);
-        return siguiente;
-      });
-    }, DURACION);
+    // siempre.
+    const timer = setTimeout(() => setMostrando(null), DURACION);
     return () => clearTimeout(timer);
-  }, [abiertas]);
+  }, [abierta]);
+
+  const visible = carpetas.find((c) => c.id === mostrando);
 
   return (
-    <ul
-      className={
-        anidada
-          ? "grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4"
-          : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-      }
-    >
-      {carpetas.map((carpeta) => {
-        const abierta = abiertas.has(carpeta.id);
-        return (
-          <Fragment key={carpeta.id}>
-            <li>
-              <Ficha
-                carpeta={carpeta}
-                abierta={abierta}
-                onAlternar={() => onAlternar(carpeta.id)}
-              />
-            </li>
+    <div>
+      {/* La grilla no se toca nunca. El panel vive FUERA de ella, así abrir una
+          carpeta no parte la fila ni empuja a las demás hacia abajo: las fichas
+          se quedan donde estaban y lo que cambia es siempre el mismo lugar,
+          justo debajo. */}
+      <ul
+        className={
+          anidada
+            ? "grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4"
+            : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+        }
+      >
+        {carpetas.map((carpeta) => (
+          <li key={carpeta.id}>
+            <Ficha
+              carpeta={carpeta}
+              abierta={abierta === carpeta.id}
+              onAlternar={() => alternar(carpeta.id)}
+            />
+          </li>
+        ))}
+      </ul>
 
-            {/* El panel es otra celda que ocupa la fila entera. Va justo
-                después de su ficha, así lo que se abre empuja hacia abajo a lo
-                que sigue en vez de aparecer al final de todo. */}
-            {(abierta || cerrando.has(carpeta.id)) && (
-              <li className="col-span-full">
-                <Panel abierto={abierta}>
-                  <CuerpoPanel
-                    carpeta={carpeta}
-                    onCerrar={() => onAlternar(carpeta.id)}
-                  />
-                </Panel>
-              </li>
-            )}
-          </Fragment>
-        );
-      })}
-    </ul>
+      {visible && (
+        <Panel abierto={abierta !== null}>
+          {/* La `key` hace que al pasar de una carpeta a otra el contenido
+              vuelva a entrar escalonado, en vez de cambiar de golpe y dejarte
+              dudando de si se actualizó. */}
+          <CuerpoPanel
+            key={visible.id}
+            carpeta={visible}
+            onCerrar={() => setAbierta(null)}
+          />
+        </Panel>
+      )}
+    </div>
   );
 }
 
