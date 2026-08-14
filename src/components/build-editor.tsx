@@ -21,6 +21,21 @@ const SLOT_LABELS: Record<EquipmentSlot, string> = {
   mount: "Montura",
 };
 
+/**
+ * Disposición de los slots, imitando el panel de personaje del juego.
+ *
+ * Tres columnas: a la izquierda el arma y la montura, en el medio la armadura
+ * de arriba abajo, y a la derecha capa, off-hand y consumibles. La idea es que
+ * quien viene del juego encuentre cada pieza donde ya la busca con el ojo, sin
+ * tener que leer las etiquetas.
+ */
+const DISPOSICION: (EquipmentSlot | null)[][] = [
+  [null, "head", "cape"],
+  ["mainhand", "armor", "offhand"],
+  ["mount", "shoes", "potion"],
+  [null, null, "food"],
+];
+
 type Props = {
   build: Build;
   roles: Role[];
@@ -152,17 +167,24 @@ export function BuildEditor({ build, roles, usedColors, onClose, onSaved }: Prop
             Equipo
           </h3>
           <div className="grid grid-cols-3 gap-3">
-            {EQUIPMENT_SLOTS.map((slot) => (
-              <ItemPicker
-                key={slot}
-                slot={slot}
-                label={SLOT_LABELS[slot]}
-                value={draft.items[slot]}
-                onChange={(item) => setItem(slot, item)}
-                disabled={slot === "offhand" && twoHanded}
-                disabledReason={slot === "offhand" && twoHanded ? "Arma a dos manos" : undefined}
-              />
-            ))}
+            {DISPOSICION.flat().map((slot, indice) =>
+              slot === null ? (
+                // Hueco de la grilla: mantiene la forma del panel del juego.
+                <div key={`vacio-${indice}`} aria-hidden />
+              ) : (
+                <ItemPicker
+                  key={slot}
+                  slot={slot}
+                  label={SLOT_LABELS[slot]}
+                  value={draft.items[slot]}
+                  onChange={(item) => setItem(slot, item)}
+                  disabled={slot === "offhand" && twoHanded}
+                  disabledReason={
+                    slot === "offhand" && twoHanded ? "Arma a dos manos" : undefined
+                  }
+                />
+              ),
+            )}
           </div>
         </section>
 

@@ -32,6 +32,22 @@ import { iconUrl, type BuildItem } from "@/lib/items";
 const MAX_REINTENTOS = 3;
 const ESPERA_MS = 700;
 
+/**
+ * Ruta del ícono guardado en el repositorio.
+ *
+ * Se intenta SIEMPRE primero. Lo sirve el CDN sin ejecutar ninguna función y
+ * sin depender del servicio de Albion, así que es lo más rápido posible y
+ * además no falla.
+ *
+ * No hay manifiesto de qué íconos existen en local: mandar una lista de miles
+ * de identificadores al navegador para evitar un 404 ocasional costaría más de
+ * lo que ahorra. Si el archivo no está, se cae al proxy y listo.
+ */
+function rutaLocal(id: string, ench: number): string {
+  const nombre = ench > 0 ? `${id}@${ench}` : id;
+  return `/icons/${encodeURIComponent(nombre)}.png`;
+}
+
 type Props = {
   item: BuildItem | string;
   /** Nombre del item, para lectores de pantalla y para cuando no carga. */
@@ -64,15 +80,25 @@ export function ItemIcon({
 
   // Se pide al doble de resolución para que no se vea borroso en pantallas
   // retina y en celulares, que es donde más se mira esto.
-  const base = iconUrl(item, { size: Math.min(size * 2, 217) });
+  const proxy = iconUrl(item, { size: Math.min(size * 2, 217) });
 
-  // El parámetro del reintento cambia la URL para saltear cualquier caché
-  // intermedio que pudiera estar guardando la respuesta fallida.
-  const src = intento === 0 ? base : `${base}${base.includes("?") ? "&" : "?"}r=${intento}`;
+  // Intento 0: el archivo local. Del 1 en adelante: el proxy, que a su vez
+  // reintenta contra el servicio del juego. El parámetro cambia la URL para
+  // saltear cualquier caché intermedio que guardara la respuesta fallida.
+  const src =
+    intento === 0
+      ? rutaLocal(id, ench)
+      : intento === 1
+        ? proxy
+        : `${proxy}${proxy.includes("?") ? "&" : "?"}r=${intento}`;
 
   function onError() {
     if (intento < MAX_REINTENTOS) {
-      setTimeout(() => setIntento((n) => n + 1), ESPERA_MS * (intento + 1));
+      // Pasar del archivo local al proxy es instantáneo: no es un fallo del
+      // servicio, es simplemente un ícono que no descargamos. Esperar ahí sería
+      // agregar medio segundo de nada.
+      const espera = intento === 0 ? 0 : ESPERA_MS * intento;
+      setTimeout(() => setIntento((n) => n + 1), espera);
     } else {
       setFallado(true);
     }

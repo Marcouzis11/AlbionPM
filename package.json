@@ -9,7 +9,9 @@
     "lint": "eslint",
     "build:items": "node scripts/build-items.mts",
     "db:push": "psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/migrations/0001_esquema_inicial.sql",
-    "test:calc": "node scripts/test-calc.mts"
+    "test:calc": "node scripts/test-calc.mts",
+    "icons:plan": "node scripts/download-icons.mts --dry-run",
+    "icons:download": "node scripts/download-icons.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

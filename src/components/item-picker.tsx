@@ -109,7 +109,7 @@ export function ItemPicker({
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         title={disabled ? disabledReason : undefined}
-        className="flex h-[70px] w-full items-center gap-2 rounded-lg border border-border bg-surface-2 p-2 text-left transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex h-[76px] w-full items-center gap-2 rounded-lg border border-border bg-surface-2 p-2 pb-6 text-left transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-40"
       >
         {value ? (
           <>
@@ -119,7 +119,7 @@ export function ItemPicker({
                 {seleccionado?.es ?? value.id}
               </span>
               <span className="block text-[11px] text-muted">
-                {value.ench ? `Encantamiento ${value.ench}` : "Sin encantar"}
+                {value.quality && value.quality > 1 ? CALIDADES[value.quality] : "\u00a0"}
               </span>
             </span>
           </>
@@ -131,14 +131,47 @@ export function ItemPicker({
       </button>
 
       {value && !disabled && (
-        <button
-          type="button"
-          onClick={() => onChange(undefined)}
-          aria-label={`Quitar ${label}`}
-          className="absolute right-1 top-6 rounded px-1 text-muted hover:text-danger"
-        >
-          ×
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={() => onChange(undefined)}
+            aria-label={`Quitar ${label}`}
+            className="absolute right-1 top-5 rounded px-1 text-xs text-muted hover:text-danger"
+          >
+            ×
+          </button>
+
+          {/* Encantamiento sin abrir el selector: es lo que más se toquetea al
+              armar una build, y entrar al panel cada vez sería una fricción
+              absurda para subir un punto. El ícono cambia al instante. */}
+          <div className="absolute bottom-1 right-1 flex items-center gap-0.5 rounded-md border border-border bg-surface px-0.5">
+            <button
+              type="button"
+              aria-label="Bajar encantamiento"
+              disabled={(value.ench ?? 0) <= 0}
+              onClick={() =>
+                onChange({ ...value, ench: Math.max(0, (value.ench ?? 0) - 1) as Enchantment })
+              }
+              className="px-1 text-xs leading-none text-muted hover:text-text disabled:opacity-30"
+            >
+              −
+            </button>
+            <span className="min-w-[1.6rem] text-center font-mono text-[11px] tabular-nums">
+              .{value.ench ?? 0}
+            </span>
+            <button
+              type="button"
+              aria-label="Subir encantamiento"
+              disabled={(value.ench ?? 0) >= 4}
+              onClick={() =>
+                onChange({ ...value, ench: Math.min(4, (value.ench ?? 0) + 1) as Enchantment })
+              }
+              className="px-1 text-xs leading-none text-muted hover:text-text disabled:opacity-30"
+            >
+              +
+            </button>
+          </div>
+        </>
       )}
 
       {open && (

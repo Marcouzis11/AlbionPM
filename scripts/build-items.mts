@@ -56,6 +56,23 @@ const SLOT_BY_TOKEN: Record<string, EquipmentSlot> = {
   MOUNT: "mount",
 };
 
+/**
+ * Animales de granja que NO son monturas.
+ *
+ * Las monturas domadas viven bajo `FARM_..._GROWN` y no bajo `MOUNT_`, así que
+ * hay que incluir esa familia — es donde está el garrapresta
+ * (`T5_FARM_COUGAR_GROWN`), entre otras. Pero ahí también están el ganado y las
+ * aves de corral, que no se montan.
+ */
+const NO_SON_MONTURAS = new Set([
+  "CHICKEN",
+  "GOAT",
+  "GOOSE",
+  "SHEEP",
+  "PIG",
+  "COW",
+]);
+
 export type EquipmentSlot =
   | "mainhand"
   | "offhand"
@@ -106,12 +123,32 @@ async function main() {
     // se guarda aparte en la build, no como items distintos.
     if (uniqueName.includes("@")) continue;
 
-    const match = /^T(\d)_(.+)$/.exec(uniqueName);
-    if (!match) continue;
+    let tier: number;
+    let slot: EquipmentSlot | undefined;
 
-    const tier = Number(match[1]);
-    const token = match[2].split("_")[0];
-    const slot = SLOT_BY_TOKEN[token];
+    const conTier = /^T(\d)_(.+)$/.exec(uniqueName);
+
+    if (conTier) {
+      tier = Number(conTier[1]);
+      const resto = conTier[2];
+      const token = resto.split("_")[0];
+
+      if (token === "FARM" && resto.endsWith("_GROWN")) {
+        // Monturas domadas: `T5_FARM_COUGAR_GROWN` es el garrapresta.
+        const animal = resto.replace(/^FARM_/, "").replace(/_GROWN$/, "").split("_")[0];
+        if (!NO_SON_MONTURAS.has(animal)) slot = "mount";
+      } else {
+        slot = SLOT_BY_TOKEN[token];
+      }
+    } else if (uniqueName.startsWith("UNIQUE_MOUNT_")) {
+      // Monturas de evento y de recompensa. No tienen tier en el nombre;
+      // se les asigna 0 para que queden agrupadas aparte al ordenar.
+      tier = 0;
+      slot = "mount";
+    } else {
+      continue;
+    }
+
     if (!slot) continue;
 
     // Sin nombre en inglés no hay nada que mostrar ni que buscar.
@@ -128,7 +165,7 @@ async function main() {
       tier,
     };
 
-    if (token === "2H") item.twoHanded = true;
+    if (conTier && conTier[2].startsWith("2H_")) item.twoHanded = true;
 
     items.push(item);
   }
