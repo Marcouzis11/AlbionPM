@@ -6,7 +6,7 @@ import { FaltaConfigurar } from "@/components/falta-configurar";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata: Metadata = { title: "Crear cuenta — AlbionPM" };
+export const metadata: Metadata = { title: "Crear cuenta en AlbionPM" };
 
 export default async function RegistroPage() {
   if (!isSupabaseConfigured()) return <FaltaConfigurar />;

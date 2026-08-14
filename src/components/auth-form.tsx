@@ -34,8 +34,9 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
           type="email"
           required
           autoComplete="email"
+          autoFocus
           placeholder="vos@ejemplo.com"
-          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-text placeholder:text-muted"
+          className="h-11 w-full rounded-lg border border-border bg-surface px-3 text-text placeholder:text-muted"
         />
       </div>
 
@@ -50,10 +51,13 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
           required
           minLength={isSignUp ? 8 : undefined}
           autoComplete={isSignUp ? "new-password" : "current-password"}
-          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-text"
+          aria-describedby={isSignUp ? "ayuda-clave" : undefined}
+          className="h-11 w-full rounded-lg border border-border bg-surface px-3 text-text"
         />
         {isSignUp && (
-          <p className="text-xs text-muted">Mínimo 8 caracteres.</p>
+          <p id="ayuda-clave" className="text-xs text-muted">
+            Mínimo 8 caracteres.
+          </p>
         )}
       </div>
 
@@ -78,7 +82,8 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-lg bg-accent px-4 py-2.5 font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-60"
+        aria-busy={pending}
+        className="h-11 w-full rounded-lg bg-accent px-4 font-medium text-accent-fg transition-colors hover:bg-accent-hover active:translate-y-px disabled:opacity-60 disabled:active:translate-y-0"
       >
         {pending ? "Un momento…" : isSignUp ? "Crear cuenta" : "Entrar"}
       </button>

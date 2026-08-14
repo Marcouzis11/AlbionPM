@@ -6,7 +6,7 @@ import { FaltaConfigurar } from "@/components/falta-configurar";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata: Metadata = { title: "Entrar — AlbionPM" };
+export const metadata: Metadata = { title: "Entrar en AlbionPM" };
 
 export default async function EntrarPage() {
   if (!isSupabaseConfigured()) return <FaltaConfigurar />;

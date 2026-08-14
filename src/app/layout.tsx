@@ -16,10 +16,23 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const TITULO = "AlbionPM, gestor de partys para Albion Online";
+const DESCRIPCION =
+  "Armá composiciones, guardalas como plantillas y compartilas. Tu gremio abre un link y ve qué build le toca, en qué grupo va y quién es su líder.";
+
 export const metadata: Metadata = {
-  title: "AlbionPM — Gestor de partys para Albion Online",
-  description:
-    "Armá composiciones, guardalas como plantillas y compartilas. Tu gremio abre un link y ve qué build le toca, en qué grupo va y quién es su líder.",
+  title: TITULO,
+  description: DESCRIPCION,
+  // Lo que se ve cuando alguien pega el link en Discord, que es exactamente
+  // por donde circula esta herramienta.
+  openGraph: {
+    title: TITULO,
+    description: DESCRIPCION,
+    type: "website",
+    locale: "es_AR",
+    siteName: "AlbionPM",
+  },
+  twitter: { card: "summary", title: TITULO, description: DESCRIPCION },
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
