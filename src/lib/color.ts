@@ -97,3 +97,24 @@ export function hueDistance(a: number, b: number): number {
 
 /** Tolerancia para mostrar un color usado sobre el panel de saturación/brillo. */
 export const HUE_TOLERANCE = 15;
+
+/**
+ * El fondo con que una build pinta la fila de su persona.
+ *
+ * Antes era el color con opacidad fija (`#RRGGBB1f`, un 12%). Sobre el carbón
+ * del tema oscuro eso quedaba a un paso del fondo: la fila se fundía y el
+ * sistema de colores, que es funcional y no decorativo, dejaba de servir.
+ *
+ * Ahora se mezcla de verdad contra una base que cambia con el tema, definida
+ * en `globals.css`. La mezcla va en OKLab y no en sRGB: en sRGB un amarillo y
+ * un azul mezclados al mismo porcentaje salen con brillos muy distintos, y las
+ * filas de una misma composición se verían unas más pesadas que otras.
+ */
+export function tinteDeFila(hex: string): string {
+  return `color-mix(in oklab, ${hex} var(--fuerza-fila), var(--base-fila))`;
+}
+
+/** El borde de esa misma fila: el mismo tono, con más color para marcarse. */
+export function bordeDeFila(hex: string): string {
+  return `color-mix(in oklab, ${hex} var(--fuerza-borde-fila), var(--base-fila))`;
+}

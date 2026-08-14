@@ -41,3 +41,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# skills de agentes instaladas con `npx skills add`
+# Son herramientas de quien escribe el código, no parte de AlbionPM. El lock
+# alcanza para reinstalarlas, así que no hace falta versionar los archivos.
+/.agents/
+/.claude/
+skills-lock.json

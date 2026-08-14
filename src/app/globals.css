@@ -65,6 +65,13 @@
   --accent-fg: var(--l-accent-fg);
   --danger: var(--l-danger);
   --success: var(--l-success);
+
+  /* El tinte con que una build pinta la fila de su persona. En claro se mezcla
+     contra blanco puro, que es lo que da el pastel de verdad. */
+  --base-fila: #ffffff;
+  --fuerza-fila: 30%;
+  --fuerza-borde-fila: 55%;
+
   color-scheme: light;
 }
 
@@ -80,6 +87,15 @@
   --accent-fg: var(--d-accent-fg);
   --danger: var(--d-danger);
   --success: var(--d-success);
+
+  /* En oscuro la mezcla va contra la superficie elevada, no contra blanco: un
+     pastel literal acá obligaría a dar vuelta el texto de las veinte filas de
+     cada grupo, y los campos de adentro quedarían oscuros sobre claro. Sube la
+     proporción de color para compensar y que el tono igual se lea. */
+  --base-fila: var(--d-surface-2);
+  --fuerza-fila: 42%;
+  --fuerza-borde-fila: 62%;
+
   color-scheme: dark;
 }
 
@@ -99,6 +115,9 @@
     --accent-fg: var(--d-accent-fg);
     --danger: var(--d-danger);
     --success: var(--d-success);
+    --base-fila: var(--d-surface-2);
+    --fuerza-fila: 42%;
+    --fuerza-borde-fila: 62%;
     color-scheme: dark;
   }
 }
@@ -130,6 +149,76 @@ body {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* ============================================================================
+   Lo que aparece al abrir una carpeta
+   ----------------------------------------------------------------------------
+   El escalón entre elementos es lo que deja ver CÓMO aparecen las cosas —una
+   tras otra— en vez de un bloque entero de golpe. Sin él, el panel abierto
+   simplemente está ahí, y no se lee que salió de la carpeta que tocaste.
+
+   Se corta en el noveno elemento porque a partir de ahí la espera se nota más
+   que el efecto: una carpeta con cuarenta builds no puede tardar un segundo en
+   terminar de pintarse.
+   ========================================================================== */
+
+@keyframes aparece-escalonado {
+  from {
+    opacity: 0;
+    transform: translateY(9px) scale(0.985);
+  }
+}
+
+.aparece-escalonado > * {
+  animation-name: aparece-escalonado;
+  animation-duration: 0.24s;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.35, 1);
+  /* `backwards` mantiene el estado inicial durante el retraso: sin eso, los
+     elementos escalonados parpadean visibles antes de empezar a entrar. */
+  animation-fill-mode: backwards;
+  animation-delay: 224ms;
+}
+
+.aparece-escalonado > :nth-child(1) {
+  animation-delay: 0ms;
+}
+.aparece-escalonado > :nth-child(2) {
+  animation-delay: 28ms;
+}
+.aparece-escalonado > :nth-child(3) {
+  animation-delay: 56ms;
+}
+.aparece-escalonado > :nth-child(4) {
+  animation-delay: 84ms;
+}
+.aparece-escalonado > :nth-child(5) {
+  animation-delay: 112ms;
+}
+.aparece-escalonado > :nth-child(6) {
+  animation-delay: 140ms;
+}
+.aparece-escalonado > :nth-child(7) {
+  animation-delay: 168ms;
+}
+.aparece-escalonado > :nth-child(8) {
+  animation-delay: 196ms;
+}
+
+/* Quien pidió menos movimiento igual necesita notar que algo apareció: queda
+   el fundido, sin desplazamiento ni escalón. */
+@media (prefers-reduced-motion: reduce) {
+  .aparece-escalonado > * {
+    animation-name: aparece-fundido;
+    animation-duration: 0.12s;
+    animation-delay: 0ms !important;
+  }
+
+  @keyframes aparece-fundido {
+    from {
+      opacity: 0;
+    }
+  }
 }
 
 /* ============================================================================
