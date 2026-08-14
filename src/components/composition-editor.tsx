@@ -16,6 +16,10 @@ import {
   updateGroup,
   updateSlot,
 } from "@/app/actions/compositions";
+import {
+  propsDeArrastre,
+  useZonaDeSoltar,
+} from "@/components/arrastre";
 import { BuildPeek } from "@/components/build-peek";
 import { CompHeader } from "@/components/comp-header";
 import type { Build, Role } from "@/lib/builds-shared";
@@ -129,6 +133,7 @@ export function CompositionEditor({
               onAtrasar={
                 siguiente && (() => run(() => swapGroups(group, siguiente)))
               }
+              onSoltarGrupo={(otro) => run(() => swapGroups(group, otro))}
             />
           );
         })}
@@ -168,6 +173,7 @@ function TarjetaGrupo({
   onRun,
   onAdelantar,
   onAtrasar,
+  onSoltarGrupo,
 }: {
   group: CompGroup;
   builds: Build[];
@@ -178,12 +184,35 @@ function TarjetaGrupo({
   /** `undefined` cuando ya es el primero o el último. */
   onAdelantar: (() => void) | undefined;
   onAtrasar: (() => void) | undefined;
+  onSoltarGrupo: (otro: { id: string; position: number }) => void;
 }) {
   const confirmados = group.slots.filter((s) => (s.player_name ?? "").trim() !== "").length;
 
+  // Soltar un grupo sobre otro los intercambia. Se toma por el encabezado y no
+  // por la tarjeta entera: adentro hay veinte filas con campos que hay que
+  // poder seleccionar con el mouse sin que se dispare un arrastre.
+  const zona = useZonaDeSoltar(
+    (dato) => dato.tipo === "grupo" && dato.id !== group.id,
+    (dato) => {
+      if (dato.tipo === "grupo") onSoltarGrupo({ id: dato.id, position: dato.position });
+    },
+  );
+
   return (
-    <section className="flex flex-col rounded-xl border border-border bg-surface">
-      <header className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
+    <section
+      {...zona.props}
+      className={`flex flex-col rounded-xl border bg-surface transition-colors ${
+        zona.encima ? "border-accent ring-2 ring-accent" : "border-border"
+      }`}
+    >
+      <header
+        {...(bloqueado
+          ? {}
+          : propsDeArrastre({ tipo: "grupo", id: group.id, position: group.position }))}
+        className={`flex flex-wrap items-center gap-2 border-b border-border px-3 py-2 ${
+          bloqueado ? "" : "cursor-grab active:cursor-grabbing"
+        }`}
+      >
         <input
           defaultValue={group.name ?? ""}
           disabled={bloqueado}

@@ -1,6 +1,12 @@
 "use client";
 
 import { Folder, FolderOpen, X } from "lucide-react";
+
+import {
+  propsDeArrastre,
+  useZonaDeSoltar,
+  type Arrastrado,
+} from "@/components/arrastre";
 import { useEffect, useState } from "react";
 
 /**
@@ -41,6 +47,17 @@ export type FichaDeCarpeta = {
    * de guardar: es un solo dato y un botón aparte solo agregaría un paso.
    */
   onRenombrar?: (nombre: string) => void;
+  /**
+   * Arrastrar y soltar. Solo aplica en la computadora: en el celular el
+   * arrastre nativo no se activa y queda el menú «Mover a».
+   */
+  arrastre?: {
+    /** Lo que representa esta ficha cuando la tomás. Sin esto no se arrastra. */
+    tomar?: Arrastrado;
+    /** Si algo que viene arrastrado puede soltarse acá. */
+    acepta?: (dato: Arrastrado) => boolean;
+    alSoltar?: (dato: Arrastrado) => void;
+  };
 };
 
 /** Lo que tarda el panel en abrirse y cerrarse. El CSS usa el mismo número. */
@@ -147,11 +164,20 @@ function Ficha({
 }) {
   const color = carpeta.color ?? "var(--muted)";
 
+  const zona = useZonaDeSoltar(
+    (dato) => carpeta.arrastre?.acepta?.(dato) ?? false,
+    (dato) => carpeta.arrastre?.alSoltar?.(dato),
+  );
+
+  const tomar = carpeta.arrastre?.tomar;
+
   return (
     <div
+      {...zona.props}
+      {...(tomar ? propsDeArrastre(tomar) : {})}
       className={`group relative aspect-square transition-transform duration-200 motion-reduce:transition-none ${
         abierta ? "-translate-y-0.5" : "hover:-translate-y-0.5"
-      }`}
+      } ${tomar ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
       {/* La pestaña. Es lo único que separa una carpeta de un recuadro, así que
           tiene que pesar: un filo de tres píxeles no dibuja nada. */}
@@ -166,9 +192,11 @@ function Ficha({
         onClick={onAlternar}
         aria-expanded={abierta}
         className={`absolute inset-x-0 bottom-0 top-5 flex flex-col justify-between rounded-xl rounded-tl-none border p-3 text-left transition-colors ${
-          abierta
-            ? "border-accent bg-surface-2"
-            : "border-border bg-surface hover:border-accent"
+          zona.encima
+            ? "border-accent border-dashed bg-accent/10 ring-2 ring-accent"
+            : abierta
+              ? "border-accent bg-surface-2"
+              : "border-border bg-surface hover:border-accent"
         }`}
       >
         <span style={{ color }}>

@@ -15,6 +15,7 @@ import {
   renameFolder,
 } from "@/app/actions/builds";
 import { BuildEditor } from "@/components/build-editor";
+import { propsDeArrastre } from "@/components/arrastre";
 import { GrillaCarpetas, type FichaDeCarpeta } from "@/components/carpetas";
 import type { UsedColor } from "@/components/color-picker";
 import { ItemIcon } from "@/components/item-icon";
@@ -80,6 +81,19 @@ export function BuildsLibrary({
   );
 
   const buscando = query.trim() !== "" || roleFilter !== "" || tagFilter !== "";
+
+  /** ¿`posible` está en la cadena de padres de `carpeta`? */
+  function esAncestra(posible: string, carpeta: string): boolean {
+    const porId = new Map(folders.map((f) => [f.id, f]));
+    let actual = porId.get(carpeta)?.parent_id ?? null;
+    let vueltas = 0;
+    while (actual && vueltas < 50) {
+      if (actual === posible) return true;
+      actual = porId.get(actual)?.parent_id ?? null;
+      vueltas += 1;
+    }
+    return false;
+  }
 
   /** La ruta de cada carpeta, para distinguir tres «Gankeo» en tres ramas. */
   const rutaDe = useMemo(() => {
@@ -193,6 +207,24 @@ export function BuildsLibrary({
           nombre: f.name,
           detalle: describir(dentro),
           onRenombrar: (nombre) => correr(() => renameFolder(f.id, nombre)),
+          arrastre: {
+            tomar: { tipo: "carpeta", id: f.id, origen: f.parent_id },
+            // Acepta builds de otra carpeta, y carpetas que no sean ella misma
+            // ni una de sus ancestras. Lo de las ancestras lo vuelve a mirar el
+            // servidor: acá es para no ofrecer una zona que va a fallar.
+            acepta: (dato) =>
+              (dato.tipo === "build" && dato.origen !== f.id) ||
+              (dato.tipo === "carpeta" &&
+                dato.id !== f.id &&
+                dato.origen !== f.id &&
+                !esAncestra(dato.id, f.id)),
+            alSoltar: (dato) =>
+              correr(() =>
+                dato.tipo === "build"
+                  ? moveBuild(dato.id, f.id)
+                  : moveFolder(dato.id, f.id),
+              ),
+          },
           panel: () => contenidoDeCarpeta(f.id),
           accion: (
             <div className="flex items-center gap-0.5 rounded-lg bg-surface/90">
@@ -439,7 +471,8 @@ function FilaBuild({
 }) {
   return (
     <div
-      className="flex min-h-14 flex-wrap items-center gap-2 rounded-lg border border-border px-2.5 py-1.5"
+      {...propsDeArrastre({ tipo: "build", id: build.id, origen: build.folder_id })}
+      className="flex min-h-14 cursor-grab flex-wrap items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 active:cursor-grabbing"
       style={
         build.color
           ? { background: tinteDeFila(build.color), borderColor: bordeDeFila(build.color) }

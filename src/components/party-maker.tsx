@@ -16,6 +16,7 @@ import {
   moveComposition,
   type Plantilla,
 } from "@/app/actions/compositions";
+import { propsDeArrastre } from "@/components/arrastre";
 import { GrillaCarpetas, type FichaDeCarpeta } from "@/components/carpetas";
 import { MoverA } from "@/components/mover-a";
 import { colorSugerido, PALETA_CONTENIDOS } from "@/lib/color";
@@ -83,6 +84,11 @@ export function PartyMaker({
           ? "Sin composiciones"
           : `${suyas.length} composición${suyas.length === 1 ? "" : "es"}`,
       onRenombrar: (nombre) => correr(() => renameContent(content.id, nombre)),
+      arrastre: {
+        // Una carpeta acepta cualquier composición que hoy viva en otra.
+        acepta: (dato) => dato.tipo === "composicion" && dato.origen !== content.id,
+        alSoltar: (dato) => correr(() => moveComposition(dato.id, content.id)),
+      },
       panel: () => (
         <ContenidoAbierto
           contentId={content.id}
@@ -437,7 +443,12 @@ function ContenidoAbierto({
         {compositions.map((comp) => (
           <li
             key={comp.id}
-            className="flex min-h-11 items-center gap-1 rounded-lg pr-1 transition-colors hover:bg-surface-2"
+            {...propsDeArrastre({
+              tipo: "composicion",
+              id: comp.id,
+              origen: contentId,
+            })}
+            className="flex min-h-11 cursor-grab items-center gap-1 rounded-lg pr-1 transition-colors hover:bg-surface-2 active:cursor-grabbing"
           >
             <Link
               href={`/app/${gameSlug}/comp/${comp.id}`}
