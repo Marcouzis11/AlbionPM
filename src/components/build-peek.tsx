@@ -46,7 +46,7 @@ export function BuildPeek({ build }: { build: Build | undefined }) {
     return (
       <span
         aria-hidden
-        className="size-7 shrink-0 rounded border border-dashed border-border"
+        className="size-10 shrink-0 rounded-lg border border-dashed border-border"
       />
     );
   }
@@ -61,18 +61,18 @@ export function BuildPeek({ build }: { build: Build | undefined }) {
         aria-expanded={abierto}
         aria-label={`Ver el equipo de ${build.name}`}
         title={build.name}
-        className="group relative flex size-8 items-center justify-center rounded border border-transparent hover:border-accent"
+        className="group relative flex size-10 items-center justify-center rounded-lg border border-transparent transition-colors hover:border-accent"
       >
         {arma ? (
-          <ItemIcon item={arma} size={26} />
+          <ItemIcon item={arma} size={40} />
         ) : (
-          <span className="size-6 rounded border border-dashed border-border" />
+          <span className="size-8 rounded-lg border border-dashed border-border" />
         )}
 
         {/* Marca chiquita de «hay más». Sin esto, nada indica que la fila
             esconde ocho piezas más. */}
         <ChevronDown
-          size={9}
+          size={11}
           aria-hidden
           className={`absolute -bottom-0.5 -right-0.5 rounded-sm bg-surface text-muted transition-transform group-hover:text-accent motion-reduce:transition-none ${
             abierto ? "rotate-180" : ""

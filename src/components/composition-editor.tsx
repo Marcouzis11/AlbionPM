@@ -25,6 +25,7 @@ import {
   type CompGroup,
   type Composition,
 } from "@/lib/compositions-shared";
+import { tinteDeFila } from "@/lib/color";
 
 /**
  * Editor de composición.
@@ -212,7 +213,7 @@ function TarjetaGrupo({
               className="flex items-center gap-1.5 px-2 py-1"
               // El color de la build pinta la fila: es lo que permite reconocer
               // de un vistazo quién lleva qué sin leer nada.
-              style={build?.color ? { background: `${build.color}1f` } : undefined}
+              style={build?.color ? { background: tinteDeFila(build.color) } : undefined}
             >
               <button
                 type="button"

@@ -163,7 +163,7 @@ export function BuildEditor({ build, roles, usedColors, onClose, onSaved }: Prop
         </div>
 
         <section className="mt-6">
-          <h3 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted">
+          <h3 className="mb-2 text-sm font-medium text-muted">
             Equipo
           </h3>
           <div className="mx-auto grid max-w-md grid-cols-3 gap-3">
@@ -189,14 +189,14 @@ export function BuildEditor({ build, roles, usedColors, onClose, onSaved }: Prop
         </section>
 
         <section className="mt-6">
-          <h3 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted">
+          <h3 className="mb-2 text-sm font-medium text-muted">
             Tags
           </h3>
           <div className="flex flex-wrap items-center gap-1.5">
             {draft.tags.map((tag) => (
               <span
                 key={tag}
-                className="flex max-w-[12rem] items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-xs"
+                className="flex max-w-[12rem] items-center gap-1 rounded-lg bg-surface-2 px-2.5 py-1 text-xs"
               >
                 <span className="truncate">{tag}</span>
                 <button
@@ -222,13 +222,13 @@ export function BuildEditor({ build, roles, usedColors, onClose, onSaved }: Prop
               }}
               onBlur={addTag}
               placeholder="Agregar tag…"
-              className="w-32 rounded-full border border-border bg-surface-2 px-2.5 py-1 text-xs"
+              className="w-32 rounded-lg border border-border bg-surface-2 px-2.5 py-1 text-xs"
             />
           </div>
         </section>
 
         <section className="mt-6">
-          <h3 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted">
+          <h3 className="mb-2 text-sm font-medium text-muted">
             Notas
           </h3>
           <textarea
@@ -254,7 +254,7 @@ export function BuildEditor({ build, roles, usedColors, onClose, onSaved }: Prop
             type="button"
             onClick={guardar}
             disabled={pending}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-60"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover active:translate-y-px disabled:opacity-60"
           >
             {pending ? "Guardando…" : "Guardar"}
           </button>

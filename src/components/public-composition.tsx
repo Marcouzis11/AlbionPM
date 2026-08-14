@@ -10,6 +10,7 @@ import {
   type SharedComposition,
   type SharedSlot,
 } from "@/lib/shared-composition";
+import { tinteDeFila } from "@/lib/color";
 
 /**
  * Vista pública de una composición. Es la pantalla que justifica el proyecto.
@@ -93,9 +94,11 @@ export function PublicComposition({
         )}
       </header>
 
-      {/* Buscador: lo primero, con foco automático. */}
+      {/* Buscador: lo primero, con foco automático y con el peso visual que
+          corresponde. Es la única cosa que esta pantalla le pide al jugador,
+          así que no puede pesar lo mismo que el resto. */}
       <div className="print:hidden">
-        <label htmlFor="buscar" className="block text-sm font-medium">
+        <label htmlFor="buscar" className="block text-base font-medium">
           Buscá tu nombre
         </label>
         <input
@@ -103,15 +106,22 @@ export function PublicComposition({
           autoFocus
           value={consulta}
           onChange={(event) => setConsulta(event.target.value)}
-          placeholder="Escribí tu nombre de personaje…"
-          className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-base"
+          placeholder="Tu nombre de personaje"
+          aria-describedby="ayuda-buscar"
+          className="mt-2 h-14 w-full rounded-xl border border-border bg-surface px-4 text-lg transition-colors focus:border-accent"
         />
-        {consulta.trim() !== "" && !encontrado && (
-          <p className="mt-2 text-sm text-muted">
-            No encontramos a nadie con ese nombre. Fijate en la composición completa,
-            abajo.
-          </p>
-        )}
+        <p id="ayuda-buscar" className="mt-2 text-sm text-muted">
+          {consulta.trim() === "" ? (
+            "Escribilo como lo tenés en el juego. No importan las mayúsculas."
+          ) : !encontrado ? (
+            <span className="text-danger">
+              No hay nadie con ese nombre en esta composición. Fijate si lo escribiste
+              distinto, o buscate en la lista completa de abajo.
+            </span>
+          ) : (
+            "Listo, sos vos."
+          )}
+        </p>
       </div>
 
       {encontrado && (
@@ -125,7 +135,7 @@ export function PublicComposition({
         <button
           type="button"
           onClick={() => setModo(modo === "completa" ? "ficha" : "completa")}
-          className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-surface-2"
+          className="flex h-11 items-center rounded-lg border border-border px-4 text-sm transition-colors hover:bg-surface-2 active:translate-y-px"
         >
           {modo === "completa" ? "Ocultar la composición" : "Ver la composición completa"}
         </button>
@@ -134,7 +144,7 @@ export function PublicComposition({
           <button
             type="button"
             onClick={() => window.print()}
-            className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-surface-2"
+            className="flex h-11 items-center rounded-lg border border-border px-4 text-sm transition-colors hover:bg-surface-2 active:translate-y-px"
           >
             Guardar como PDF
           </button>
@@ -144,7 +154,7 @@ export function PublicComposition({
           <button
             type="button"
             onClick={descargarPng}
-            className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-surface-2"
+            className="flex h-11 items-center rounded-lg border border-border px-4 text-sm transition-colors hover:bg-surface-2 active:translate-y-px"
           >
             Descargar imagen
           </button>
@@ -197,7 +207,7 @@ function FichaPersonal({
     >
       <div
         className="px-4 py-3"
-        style={{ background: build?.color ? `${build.color}22` : "var(--surface)" }}
+        style={{ background: build?.color ? tinteDeFila(build.color) : "var(--surface)" }}
       >
         <p className="text-xl font-semibold">{slot.player_name}</p>
         <p className="mt-0.5 text-sm">
@@ -226,9 +236,7 @@ function FichaPersonal({
 
         {build ? (
           <div>
-            <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted">
-              Tu build: {build.name}
-            </h2>
+            <h2 className="mb-2 text-sm font-medium text-muted">Tu build: {build.name}</h2>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {EQUIPMENT_SLOTS.map((s) =>
                 build.items[s] ? (
@@ -266,9 +274,7 @@ function FichaPersonal({
 
         {slot.notes && (
           <div>
-            <h2 className="mb-1 text-sm font-medium uppercase tracking-wider text-muted">
-              Nota para vos
-            </h2>
+            <h2 className="mb-1 text-sm font-medium text-muted">Nota para vos</h2>
             <p className="rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-sm">
               {slot.notes}
             </p>
@@ -277,7 +283,7 @@ function FichaPersonal({
 
         {companeros.length > 0 && (
           <details className="text-sm">
-            <summary className="cursor-pointer text-muted">
+            <summary className="flex min-h-11 cursor-pointer items-center text-muted">
               Tus {companeros.length} compañeros de grupo
             </summary>
             <ul className="mt-2 space-y-1">
@@ -295,7 +301,7 @@ function FichaPersonal({
         <button
           type="button"
           onClick={onVerCompleta}
-          className="text-sm text-accent underline underline-offset-4 print:hidden"
+          className="flex min-h-11 items-center text-sm text-accent underline underline-offset-4 print:hidden"
         >
           Ver la composición completa
         </button>
@@ -318,7 +324,7 @@ function GrupoCompleto({
       <header className="flex items-center gap-2 border-b border-border bg-surface px-3 py-2">
         <h2 className="font-medium">{group.name ?? `Grupo ${group.position + 1}`}</h2>
         {group.guild_name && (
-          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs">
+          <span className="rounded-lg bg-surface-2 px-2 py-0.5 text-xs">
             {group.guild_name}
           </span>
         )}
@@ -331,7 +337,7 @@ function GrupoCompleto({
             className={`flex flex-wrap items-center gap-2 px-3 py-1.5 text-sm ${
               slot === resaltado ? "ring-2 ring-inset ring-accent" : ""
             }`}
-            style={slot.build?.color ? { background: `${slot.build.color}22` } : undefined}
+            style={slot.build?.color ? { background: tinteDeFila(slot.build.color) } : undefined}
           >
             <span className="w-4 text-accent">{slot.is_leader ? "★" : ""}</span>
 

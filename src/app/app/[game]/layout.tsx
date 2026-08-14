@@ -37,7 +37,9 @@ export default async function GameLayout({
       <TopBar game={game} games={games} email={data.user?.email} theme={theme} />
 
       <main className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">{children}</div>
+        <div className="mx-auto w-full max-w-[110rem] px-4 py-6 sm:px-6 2xl:px-8">
+          {children}
+        </div>
       </main>
     </div>
   );

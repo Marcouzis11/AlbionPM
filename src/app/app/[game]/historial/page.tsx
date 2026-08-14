@@ -66,7 +66,7 @@ export default async function HistorialPage({
                         <span className="font-medium">{comp.name}</span>
                         {content && (
                           <span
-                            className="rounded-full px-2 py-0.5 text-[11px]"
+                            className="rounded-lg px-2 py-0.5 text-[11px]"
                             style={{
                               background: `${content.color ?? "#888"}33`,
                               color: content.color ?? undefined,

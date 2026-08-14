@@ -168,7 +168,7 @@ export function Calculator({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             onClick={calcular}
-            className="col-span-2 rounded-md bg-accent py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover"
+            className="col-span-2 rounded-md bg-accent py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover active:translate-y-px"
           >
             =
           </button>
@@ -177,7 +177,7 @@ export function Calculator({ onClose }: { onClose: () => void }) {
         {historial.length > 0 && (
           <div className="mt-3 border-t border-border pt-2">
             <div className="flex items-center justify-between pb-1">
-              <span className="text-[11px] uppercase tracking-wider text-muted">
+              <span className="text-xs font-medium text-muted">
                 Historial
               </span>
               <button

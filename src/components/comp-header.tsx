@@ -240,7 +240,7 @@ function PanelCompartir({
                 }
               })
             }
-            className="h-10 shrink-0 rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover"
+            className="h-10 shrink-0 rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover active:translate-y-px"
           >
             Generar link
           </button>

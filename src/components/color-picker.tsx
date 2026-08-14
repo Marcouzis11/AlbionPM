@@ -140,7 +140,7 @@ export function ColorPicker({ value, onChange, used }: Props) {
 
       {groups.length > 0 && (
         <div>
-          <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted">
+          <span className="mb-1 block text-xs font-medium text-muted">
             Colores en uso
           </span>
           <div className="flex flex-wrap gap-1">

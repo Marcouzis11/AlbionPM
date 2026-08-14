@@ -260,7 +260,7 @@ export function ItemPicker({
 
           {value && (
             <div className="mt-2 border-t border-border pt-2">
-              <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted">
+              <span className="mb-1 block text-xs font-medium text-muted">
                 Encantamiento
               </span>
               <div className="flex gap-1">
@@ -280,7 +280,7 @@ export function ItemPicker({
                 ))}
               </div>
 
-              <span className="mb-1 mt-2 block text-[11px] uppercase tracking-wider text-muted">
+              <span className="mb-1 mt-2 block text-xs font-medium text-muted">
                 Calidad
               </span>
               <div className="flex gap-1">
