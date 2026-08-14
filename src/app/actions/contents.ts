@@ -88,6 +88,65 @@ export async function countContentChildren(id: string): Promise<number> {
   return count ?? 0;
 }
 
+/**
+ * Borra un contenido con todo lo que tiene adentro.
+ *
+ * La base tiene `ON DELETE RESTRICT` de `compositions` sobre `contents`, así
+ * que el orden no es opcional: primero las composiciones, después el
+ * contenido. Los grupos y los lugares de cada composición se van solos, que
+ * esos sí están en cascada.
+ *
+ * **Las builds no se tocan.** Viven en su propia tabla y una composición
+ * apenas las referencia desde `comp_slots.build_id`, con `ON DELETE SET NULL`.
+ * Borrar composiciones no puede llevarse ni una build por delante.
+ *
+ * El `owner_id` va en los dos borrados aunque las políticas de la base ya
+ * limiten cada usuario a lo suyo: si algún día una política se afloja, el
+ * borrado no se convierte en un borrado ajeno.
+ *
+ * No hay papelera ni copias de seguridad, así que la interfaz tiene que
+ * mostrar la lista completa de lo que se pierde ANTES de llamar acá.
+ */
+export async function deleteContentWithCompositions(
+  id: string,
+): Promise<ContentState> {
+  const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return { error: "Necesitás iniciar sesión." };
+
+  const { error: errorComps } = await supabase
+    .from("compositions")
+    .delete()
+    .eq("content_id", id)
+    .eq("owner_id", userData.user.id);
+
+  if (errorComps) {
+    return { error: `No se pudieron borrar las composiciones: ${errorComps.message}` };
+  }
+
+  const { error } = await supabase
+    .from("contents")
+    .delete()
+    .eq("id", id)
+    .eq("owner_id", userData.user.id);
+
+  if (error) {
+    // La base rechaza el borrado si quedaron composiciones. Llegar acá
+    // significa que el borrado anterior no las alcanzó a todas, así que el
+    // contenido sigue en pie: es un estado consistente, no uno a medias.
+    if (error.code === "23503") {
+      return {
+        error:
+          "Quedaron composiciones dentro y la base frenó el borrado. No se borró nada del contenido. Volvé a intentar.",
+      };
+    }
+    return { error: `No se pudo borrar el contenido: ${error.message}` };
+  }
+
+  revalidatePath("/app", "layout");
+  return {};
+}
+
 export async function deleteContent(id: string): Promise<ContentState> {
   const supabase = await createClient();
   const { error } = await supabase.from("contents").delete().eq("id", id);

@@ -1,11 +1,15 @@
 "use client";
 
-import { Lock, Plus } from "lucide-react";
+import { Lock, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useState, useTransition } from "react";
 
-import { createContent, type ContentState } from "@/app/actions/contents";
+import {
+  createContent,
+  deleteContentWithCompositions,
+  type ContentState,
+} from "@/app/actions/contents";
 import { createComposition, type Plantilla } from "@/app/actions/compositions";
 import { GrillaCarpetas, type FichaDeCarpeta } from "@/components/carpetas";
 import { colorSugerido, PALETA_CONTENIDOS } from "@/lib/color";
@@ -41,6 +45,7 @@ export function PartyMaker({
   compositions: CompositionSummary[];
 }) {
   const [creando, setCreando] = useState(false);
+  const [borrando, setBorrando] = useState<ABorrar | null>(null);
   const [state, action, pending] = useActionState(createContent, EMPTY);
 
   const porContenido = new Map<string, CompositionSummary[]>();
@@ -68,6 +73,17 @@ export function PartyMaker({
           gameSlug={gameSlug}
           compositions={suyas}
         />
+      ),
+      accion: (
+        <button
+          type="button"
+          onClick={() => setBorrando({ content, compositions: suyas })}
+          aria-label={`Borrar ${content.name}`}
+          title={`Borrar ${content.name}`}
+          className="flex size-7 items-center justify-center rounded-lg bg-surface/90 text-muted transition-colors hover:text-danger"
+        >
+          <Trash2 size={14} aria-hidden />
+        </button>
       ),
     };
   });
@@ -157,6 +173,175 @@ export function PartyMaker({
           inicialAbierta={contents[0]?.id ?? null}
         />
       )}
+
+      {borrando && (
+        <DialogoBorrarContenido
+          content={borrando.content}
+          compositions={borrando.compositions}
+          onCancel={() => setBorrando(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+type ABorrar = { content: Content; compositions: CompositionSummary[] };
+
+/**
+ * Borrar un contenido con todo lo que tiene adentro.
+ *
+ * Un «¿estás seguro?» con un número no alcanza: «se borrarán 7 composiciones»
+ * no te deja saber si entre esas siete está la que te costó tres horas armar.
+ * Por eso se listan TODAS, con su fecha, y la lista es lo primero que se ve.
+ *
+ * Cuando hay algo que perder pide escribir el nombre. Es la única barrera que
+ * un click distraído no pasa, y acá importa más que en otros lados: el plan de
+ * la base no tiene copias de seguridad, así que esto es definitivo de verdad.
+ */
+function DialogoBorrarContenido({
+  content,
+  compositions,
+  onCancel,
+}: {
+  content: Content;
+  compositions: CompositionSummary[];
+  onCancel: () => void;
+}) {
+  const router = useRouter();
+  const [texto, setTexto] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pendiente, startTransition] = useTransition();
+
+  const vacio = compositions.length === 0;
+  const puede = vacio || texto.trim() === content.name;
+  const compartidas = compositions.filter((comp) => comp.share_slug !== null).length;
+
+  function borrar() {
+    setError(null);
+    startTransition(async () => {
+      const resultado = await deleteContentWithCompositions(content.id);
+      if (resultado.error) {
+        setError(resultado.error);
+        return;
+      }
+      onCancel();
+      router.refresh();
+    });
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="titulo-borrar-contenido"
+    >
+      <div className="flex max-h-[85dvh] w-full max-w-lg flex-col rounded-xl border border-border bg-surface p-5">
+        <h2 id="titulo-borrar-contenido" className="text-lg font-semibold">
+          Borrar «{content.name}»
+        </h2>
+
+        {vacio ? (
+          <p className="mt-3 text-sm text-muted">
+            No tiene composiciones adentro. Se borra solo la carpeta.
+          </p>
+        ) : (
+          <>
+            <p className="mt-3 text-sm">
+              Se borra la carpeta y{" "}
+              <strong className="text-danger">
+                {compositions.length === 1
+                  ? "la composición que tiene adentro"
+                  : `las ${compositions.length} composiciones que tiene adentro`}
+              </strong>
+              :
+            </p>
+
+            {/* La lista completa, con scroll propio. Que sea larga es
+                justamente el motivo por el que hay que verla. */}
+            <ul className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-lg border border-border">
+              {compositions.map((comp) => (
+                <li
+                  key={comp.id}
+                  className="flex items-center gap-2 border-b border-border px-3 py-2 text-sm last:border-b-0"
+                >
+                  {comp.is_archived && (
+                    <Lock size={12} className="shrink-0 text-accent" aria-label="Archivada" />
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{comp.name}</span>
+                    {comp.description && (
+                      <span className="block truncate text-xs text-muted">
+                        {comp.description}
+                      </span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-xs tabular-nums text-muted">
+                    {formatearCorta(comp.event_at, comp.event_tz)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-3 space-y-1.5 text-sm">
+              <p className="text-success">
+                Tus builds no se tocan. Siguen enteras en la biblioteca.
+              </p>
+              {compartidas > 0 && (
+                <p className="text-muted">
+                  {compartidas === 1
+                    ? "Un link compartido deja de funcionar"
+                    : `${compartidas} links compartidos dejan de funcionar`}
+                  : quien lo abra no va a ver nada.
+                </p>
+              )}
+              <p className="text-muted">
+                Esto no se puede deshacer y no hay copias de seguridad.
+              </p>
+            </div>
+
+            <label className="mt-3 block">
+              <span className="text-xs text-muted">
+                Para confirmar, escribí «{content.name}»
+              </span>
+              <input
+                autoFocus
+                value={texto}
+                onChange={(event) => setTexto(event.target.value)}
+                className="mt-1 h-11 w-full rounded-lg border border-border bg-surface-2 px-3 text-sm"
+              />
+            </label>
+          </>
+        )}
+
+        {error && (
+          <p role="alert" className="mt-3 text-sm text-danger">
+            {error}
+          </p>
+        )}
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="h-11 rounded-lg border border-border px-4 text-sm transition-colors hover:bg-surface-2"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={borrar}
+            disabled={!puede || pendiente}
+            className="h-11 rounded-lg bg-danger px-4 text-sm font-medium text-white transition-opacity active:translate-y-px disabled:opacity-40"
+          >
+            {pendiente
+              ? "Borrando…"
+              : vacio
+                ? "Borrar la carpeta"
+                : `Borrar todo (${compositions.length + 1})`}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
