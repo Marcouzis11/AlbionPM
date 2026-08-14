@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { colorSugerido, esColorDeContenido } from "@/lib/color";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -14,38 +15,13 @@ import { createClient } from "@/lib/supabase/server";
 
 export type ContentState = { error?: string };
 
-/**
- * Los colores que distinguen un contenido de otro.
- *
- * Son apagados a propósito. La pestaña de la carpeta es un bloque de color
- * lleno sobre carbón cálido o sobre pergamino, y los tonos saturados de esta
- * lista antes (el azul y el verde de Bootstrap, un lila casi fluorescente) se
- * despegaban del fondo como si fueran de otra aplicación.
- *
- * Dos reglas que explican la selección:
- *
- * - Ninguno es el rojo de error. El anterior arrancaba con `#D9534F`, que es
- *   prácticamente `--danger`: un contenido con ese color parecía roto.
- * - Todos rondan la misma luminosidad media, así se ven igual de presentes en
- *   los dos temas sin que ninguno desaparezca sobre su fondo.
- */
-const PALETTE = [
-  "#D4A94A", // oro
-  "#C87F3F", // ámbar quemado
-  "#7E9A4C", // oliva
-  "#4A8C9B", // verde azulado
-  "#A75F86", // ciruela
-  "#B0603F", // terracota
-  "#5F8C74", // salvia
-  "#8778B8", // violeta apagado
-];
-
 export async function createContent(
   _prev: ContentState,
   formData: FormData,
 ): Promise<ContentState> {
   const name = String(formData.get("name") ?? "").trim();
   const gameId = String(formData.get("gameId") ?? "");
+  const elegido = String(formData.get("color") ?? "");
 
   if (!name) return { error: "Ponele un nombre al contenido." };
   if (name.length > 60) return { error: "El nombre es demasiado largo." };
@@ -66,11 +42,16 @@ export async function createContent(
 
   const position = (last?.position ?? -1) + 1;
 
+  // Lo que llega del formulario se valida contra la paleta. Si no es uno de
+  // los nuestros —formulario viejo en una pestaña abierta, o alguien mandando
+  // el pedido a mano— se cae en el que le tocaba por rotación.
+  const color = esColorDeContenido(elegido) ? elegido : colorSugerido(position);
+
   const { error } = await supabase.from("contents").insert({
     owner_id: userData.user.id,
     game_id: gameId,
     name,
-    color: PALETTE[position % PALETTE.length],
+    color,
     position,
   });
 

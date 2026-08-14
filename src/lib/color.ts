@@ -99,6 +99,48 @@ export function hueDistance(a: number, b: number): number {
 export const HUE_TOLERANCE = 15;
 
 /**
+ * Los colores que distinguen un contenido de otro.
+ *
+ * Son apagados a propósito. La pestaña de la carpeta es un bloque de color
+ * lleno sobre carbón cálido o sobre pergamino, y los tonos saturados que había
+ * antes (el azul y el verde de Bootstrap, un lila casi fluorescente) se
+ * despegaban del fondo como si fueran de otra aplicación.
+ *
+ * Dos reglas que explican la selección:
+ *
+ * - Ninguno es el rojo de error. La lista anterior arrancaba con `#D9534F`,
+ *   que es prácticamente `--danger`: un contenido con ese color parecía roto.
+ * - Todos rondan la misma luminosidad media, así se ven igual de presentes en
+ *   los dos temas sin que ninguno desaparezca sobre su fondo.
+ *
+ * Vive acá y no junto a la acción de alta porque un archivo `"use server"`
+ * solo puede exportar funciones async, y esta lista la necesitan las dos
+ * puntas: el formulario para pintar las muestras y el servidor para validar.
+ */
+export type ColorDeContenido = { hex: string; nombre: string };
+
+export const PALETA_CONTENIDOS: ColorDeContenido[] = [
+  { hex: "#D4A94A", nombre: "Oro" },
+  { hex: "#C87F3F", nombre: "Ámbar quemado" },
+  { hex: "#7E9A4C", nombre: "Oliva" },
+  { hex: "#4A8C9B", nombre: "Verde azulado" },
+  { hex: "#A75F86", nombre: "Ciruela" },
+  { hex: "#B0603F", nombre: "Terracota" },
+  { hex: "#5F8C74", nombre: "Salvia" },
+  { hex: "#8778B8", nombre: "Violeta apagado" },
+];
+
+/** El que se ofrece marcado al crear: sigue la rotación de la lista. */
+export function colorSugerido(cuantosHay: number): string {
+  return PALETA_CONTENIDOS[cuantosHay % PALETA_CONTENIDOS.length].hex;
+}
+
+/** ¿Es uno de los nuestros? Lo que llega de un formulario no se confía. */
+export function esColorDeContenido(valor: string): boolean {
+  return PALETA_CONTENIDOS.some((color) => color.hex === valor);
+}
+
+/**
  * El fondo con que una build pinta la fila de su persona.
  *
  * Antes era el color con opacidad fija (`#RRGGBB1f`, un 12%). Sobre el carbón

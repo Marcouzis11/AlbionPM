@@ -8,6 +8,7 @@ import { useActionState, useState, useTransition } from "react";
 import { createContent, type ContentState } from "@/app/actions/contents";
 import { createComposition, type Plantilla } from "@/app/actions/compositions";
 import { GrillaCarpetas, type FichaDeCarpeta } from "@/components/carpetas";
+import { colorSugerido, PALETA_CONTENIDOS } from "@/lib/color";
 import type { Content } from "@/lib/data/contents";
 import type { CompositionSummary } from "@/lib/data/compositions";
 
@@ -97,37 +98,43 @@ export function PartyMaker({
         <form
           action={action}
           onSubmit={() => setCreando(false)}
-          className="flex flex-wrap items-center gap-2 rounded-xl border border-accent/40 bg-accent/5 p-3"
+          className="space-y-3 rounded-xl border border-accent/40 bg-accent/5 p-3"
         >
           <input type="hidden" name="gameId" value={gameId} />
-          <label htmlFor="nuevo-contenido" className="text-sm">
-            Nombre del contenido
-          </label>
-          <input
-            id="nuevo-contenido"
-            name="name"
-            autoFocus
-            required
-            maxLength={60}
-            placeholder="Gankeo, CTA, Castillo…"
-            className="h-11 min-w-52 flex-1 rounded-lg border border-border bg-surface px-3 text-sm"
-          />
-          <button
-            type="submit"
-            disabled={pending}
-            className="h-11 rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg disabled:opacity-60"
-          >
-            {pending ? "Creando…" : "Crear"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setCreando(false)}
-            className="h-11 rounded-lg border border-border px-4 text-sm hover:bg-surface-2"
-          >
-            Cancelar
-          </button>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="nuevo-contenido" className="text-sm">
+              Nombre del contenido
+            </label>
+            <input
+              id="nuevo-contenido"
+              name="name"
+              autoFocus
+              required
+              maxLength={60}
+              placeholder="Gankeo, CTA, Castillo…"
+              className="h-11 min-w-52 flex-1 rounded-lg border border-border bg-surface px-3 text-sm"
+            />
+            <button
+              type="submit"
+              disabled={pending}
+              className="h-11 rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover active:translate-y-px disabled:opacity-60"
+            >
+              {pending ? "Creando…" : "Crear"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setCreando(false)}
+              className="h-11 rounded-lg border border-border px-4 text-sm transition-colors hover:bg-surface-2"
+            >
+              Cancelar
+            </button>
+          </div>
+
+          <PaletaDeColores sugerido={colorSugerido(contents.length)} />
+
           {state.error && (
-            <p role="alert" className="w-full text-sm text-danger">
+            <p role="alert" className="text-sm text-danger">
               {state.error}
             </p>
           )}
@@ -151,6 +158,47 @@ export function PartyMaker({
         />
       )}
     </div>
+  );
+}
+
+/**
+ * El color del contenido, elegido al crearlo.
+ *
+ * Son botones de opción de verdad, escondidos debajo de la muestra: así las
+ * flechas del teclado recorren la paleta y cada color tiene nombre para quien
+ * no lo ve. Una fila de `div` con `onClick` se vería igual y no serviría para
+ * nada de eso.
+ *
+ * Viene uno marcado: el que le tocaba por rotación. Elegir color no puede ser
+ * un paso obligatorio para crear una carpeta.
+ */
+function PaletaDeColores({ sugerido }: { sugerido: string }) {
+  return (
+    <fieldset className="flex flex-wrap items-center gap-2">
+      <legend className="float-left mr-2 text-sm">Color</legend>
+
+      {PALETA_CONTENIDOS.map((color) => (
+        <label
+          key={color.hex}
+          title={color.nombre}
+          className="cursor-pointer leading-none"
+        >
+          <input
+            type="radio"
+            name="color"
+            value={color.hex}
+            defaultChecked={color.hex === sugerido}
+            className="peer sr-only"
+          />
+          <span
+            aria-hidden
+            style={{ background: color.hex }}
+            className="block size-8 rounded-lg ring-2 ring-transparent ring-offset-2 ring-offset-bg transition-[box-shadow] peer-checked:ring-text peer-focus-visible:ring-accent"
+          />
+          <span className="sr-only">{color.nombre}</span>
+        </label>
+      ))}
+    </fieldset>
   );
 }
 
