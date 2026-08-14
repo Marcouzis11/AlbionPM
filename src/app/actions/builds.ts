@@ -92,6 +92,28 @@ export async function renameFolder(id: string, name: string): Promise<ActionStat
 }
 
 /**
+ * Le pone color a una carpeta, o se lo saca con `null`.
+ *
+ * Lo heredan sus builds y sus subcarpetas que no tengan uno propio, así que
+ * desde acá se pintan veinte builds de una sola vez y sin entrar en ninguna.
+ */
+export async function setFolderColor(
+  id: string,
+  color: string | null,
+): Promise<ActionState> {
+  if (color !== null && !/^#[0-9A-Fa-f]{6}$/.test(color)) {
+    return { error: "Ese color no tiene un formato válido." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("build_folders").update({ color }).eq("id", id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/app", "layout");
+  return {};
+}
+
+/**
  * Reordena las builds de una carpeta.
  *
  * Recibe la lista completa ya ordenada y no un «mover del 3 al 1». El cliente

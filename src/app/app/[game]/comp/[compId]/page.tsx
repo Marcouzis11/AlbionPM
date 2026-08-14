@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CompositionEditor } from "@/components/composition-editor";
-import { listBuilds, listRoles } from "@/lib/data/builds";
+import { listBuilds, listFolders, listRoles } from "@/lib/data/builds";
 import { getComposition } from "@/lib/data/compositions";
 import { getGameBySlug } from "@/lib/data/contents";
 
@@ -14,9 +14,11 @@ export default async function CompositionPage({
   const game = await getGameBySlug(slug);
   if (!game) notFound();
 
-  const [composition, builds, roles] = await Promise.all([
+  const [composition, builds, folders, roles] = await Promise.all([
     getComposition(compId),
     listBuilds(game.id),
+    // Las carpetas hacen falta para resolver el color que hereda cada build.
+    listFolders(game.id),
     listRoles(game.id),
   ]);
 
@@ -31,7 +33,12 @@ export default async function CompositionPage({
         ← Volver al Party Maker
       </Link>
 
-      <CompositionEditor composition={composition} builds={builds} roles={roles} />
+      <CompositionEditor
+        composition={composition}
+        builds={builds}
+        folders={folders}
+        roles={roles}
+      />
     </div>
   );
 }

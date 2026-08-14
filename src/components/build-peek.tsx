@@ -83,18 +83,20 @@ export function BuildPeek({ build }: { build: Build | undefined }) {
           <span className="absolute left-0 top-full z-40 mt-1 block w-72 rounded-xl border border-border bg-surface p-3 shadow-xl">
             <span className="mb-2 block truncate text-xs font-medium">{build.name}</span>
 
-            <span className="grid grid-cols-3 gap-1.5">
+            <span className="grid grid-cols-3 gap-0.5">
               {DISPOSICION_EQUIPO.flat().map((slot, indice) =>
                 slot === null ? (
                   <span key={`v-${indice}`} aria-hidden />
                 ) : (
                   <span
                     key={slot}
-                    title={`${SLOT_LABELS[slot]}${build.items[slot] ? "" : " — vacío"}`}
-                    className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-2"
+                    title={`${SLOT_LABELS[slot]}${build.items[slot] ? "" : " (vacío)"}`}
+                    className={`flex aspect-square items-center justify-center rounded-lg ${
+                      build.items[slot] ? "" : "border border-dashed border-border"
+                    }`}
                   >
                     {build.items[slot] ? (
-                      <ItemIcon item={build.items[slot]} size={72} className="size-full" />
+                      <ItemIcon item={build.items[slot]} size={72} className="w-full" />
                     ) : (
                       <span className="text-[9px] text-muted">
                         {SLOT_LABELS[slot].slice(0, 3)}

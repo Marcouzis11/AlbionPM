@@ -1,6 +1,15 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Plus, Star, Trash2, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Crown,
+  GripVertical,
+  Plus,
+  Trash2,
+  User,
+  X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
@@ -12,6 +21,7 @@ import {
   emptyComposition,
   setLeader,
   swapGroups,
+  swapSlots,
   updateComposition,
   updateGroup,
   updateSlot,
@@ -22,12 +32,14 @@ import {
 } from "@/components/arrastre";
 import { BuildPeek } from "@/components/build-peek";
 import { CompHeader } from "@/components/comp-header";
-import type { Build, Role } from "@/lib/builds-shared";
+import { colorEfectivo, type Build, type BuildFolder, type Role } from "@/lib/builds-shared";
+import { textoSobre } from "@/lib/color";
 import {
   contarConfirmados,
   contarLugares,
   MAX_POR_GRUPO,
   type CompGroup,
+  type CompSlot,
   type Composition,
 } from "@/lib/compositions-shared";
 import { tinteDeFila } from "@/lib/color";
@@ -42,10 +54,12 @@ import { tinteDeFila } from "@/lib/color";
 export function CompositionEditor({
   composition,
   builds,
+  folders,
   roles,
 }: {
   composition: Composition;
   builds: Build[];
+  folders: BuildFolder[];
   roles: Role[];
 }) {
   const router = useRouter();
@@ -125,6 +139,7 @@ export function CompositionEditor({
               builds={builds}
               roles={roles}
               buildById={buildById}
+              folders={folders}
               bloqueado={bloqueado}
               onRun={run}
               onAdelantar={
@@ -169,6 +184,7 @@ function TarjetaGrupo({
   builds,
   roles,
   buildById,
+  folders,
   bloqueado,
   onRun,
   onAdelantar,
@@ -179,6 +195,7 @@ function TarjetaGrupo({
   builds: Build[];
   roles: Role[];
   buildById: Map<string, Build>;
+  folders: BuildFolder[];
   bloqueado: boolean;
   onRun: (fn: () => Promise<unknown>) => void;
   /** `undefined` cuando ya es el primero o el último. */
@@ -233,7 +250,11 @@ function TarjetaGrupo({
             className="w-28 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-xs"
           />
         )}
-        <span className="text-xs tabular-nums text-muted">
+        <span
+          className="flex items-center gap-1 text-xs tabular-nums text-muted"
+          title={`${confirmados} de ${group.slots.length} lugares con nombre`}
+        >
+          <User size={13} aria-hidden />
           {confirmados}/{group.slots.length}
         </span>
 
@@ -277,86 +298,34 @@ function TarjetaGrupo({
       <ul className="divide-y divide-border/70">
         {group.slots.map((slot) => {
           const build = slot.build_id ? buildById.get(slot.build_id) : undefined;
+          // El mismo color, sin mezclar, que el de la tarjeta en la biblioteca:
+          // si acá se atenuara, la misma build parecería dos builds distintas.
+          const color = build ? colorEfectivo(build, folders) : null;
+          const pintada = color !== null;
+          const estilo = pintada
+            ? { background: color, color: textoSobre(color) }
+            : undefined;
+
+          // Sobre un color lleno, los campos no pueden tener fondo propio: se
+          // vuelven transparentes y se apoyan en el color del texto de la fila.
+          const campo = pintada
+            ? "border-current/40 bg-transparent placeholder:text-current/60"
+            : "border-border bg-surface-2";
+
           return (
-            <li
+            <SlotFila
               key={slot.id}
-              className="flex items-center gap-1.5 px-2 py-1"
-              // El color de la build pinta la fila: es lo que permite reconocer
-              // de un vistazo quién lleva qué sin leer nada.
-              style={build?.color ? { background: tinteDeFila(build.color) } : undefined}
-            >
-              <button
-                type="button"
-                title={slot.is_leader ? "Líder del grupo" : "Marcar como líder"}
-                aria-label={slot.is_leader ? "Líder del grupo" : "Marcar como líder"}
-                aria-pressed={slot.is_leader}
-                disabled={bloqueado}
-                onClick={() => onRun(() => setLeader(group.id, slot.id))}
-                className={`flex size-7 shrink-0 items-center justify-center rounded ${
-                  slot.is_leader ? "text-accent" : "text-border hover:text-muted"
-                }`}
-              >
-                <Star size={14} fill={slot.is_leader ? "currentColor" : "none"} />
-              </button>
-
-              <BuildPeek build={build} />
-
-              <select
-                defaultValue={slot.build_id ?? ""}
-                disabled={bloqueado}
-                aria-label="Build"
-                onChange={(event) =>
-                  onRun(() => updateSlot(slot.id, { build_id: event.target.value || null }))
-                }
-                className="h-8 w-24 shrink-0 rounded border border-border bg-surface-2 px-1 text-xs sm:w-32"
-              >
-                <option value="">Build…</option>
-                {builds.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                defaultValue={slot.role_id ?? ""}
-                disabled={bloqueado}
-                aria-label="Rol"
-                onChange={(event) =>
-                  onRun(() => updateSlot(slot.id, { role_id: event.target.value || null }))
-                }
-                className="hidden h-8 w-24 shrink-0 rounded border border-border bg-surface-2 px-1 text-xs sm:block"
-              >
-                <option value="">Rol…</option>
-                {roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                defaultValue={slot.player_name ?? ""}
-                disabled={bloqueado}
-                placeholder="Nombre"
-                aria-label="Nombre del jugador"
-                onBlur={(event) =>
-                  onRun(() => updateSlot(slot.id, { player_name: event.target.value }))
-                }
-                className="h-8 min-w-0 flex-1 rounded border border-border bg-surface-2 px-2 text-xs"
-              />
-
-              {!bloqueado && (
-                <button
-                  type="button"
-                  onClick={() => onRun(() => deleteSlot(slot.id))}
-                  aria-label="Quitar persona"
-                  className="flex size-7 shrink-0 items-center justify-center rounded text-muted hover:text-danger"
-                >
-                  <X size={14} aria-hidden />
-                </button>
-              )}
-            </li>
+              slot={slot}
+              grupoId={group.id}
+              build={build}
+              estilo={estilo}
+              pintada={pintada}
+              campo={campo}
+              builds={builds}
+              roles={roles}
+              bloqueado={bloqueado}
+              onRun={onRun}
+            />
           );
         })}
       </ul>
@@ -372,6 +341,149 @@ function TarjetaGrupo({
         </button>
       )}
     </section>
+  );
+}
+
+/**
+ * Una persona dentro de un grupo.
+ *
+ * La manija de la izquierda arrastra la fila entera: build, rol, nombre y nota
+ * viajan juntos a donde la sueltes, en este grupo o en otro. Se intercambia el
+ * CONTENIDO de los dos lugares y no las filas, así cada grupo conserva su
+ * cantidad de lugares.
+ */
+function SlotFila({
+  slot,
+  grupoId,
+  build,
+  estilo,
+  pintada,
+  campo,
+  builds,
+  roles,
+  bloqueado,
+  onRun,
+}: {
+  slot: CompSlot;
+  grupoId: string;
+  build: Build | undefined;
+  estilo: React.CSSProperties | undefined;
+  pintada: boolean;
+  campo: string;
+  builds: Build[];
+  roles: Role[];
+  bloqueado: boolean;
+  onRun: (fn: () => Promise<unknown>) => void;
+}) {
+  const zona = useZonaDeSoltar(
+    (dato) => dato.tipo === "lugar" && dato.id !== slot.id,
+    (dato) => onRun(() => swapSlots(dato.id, slot.id)),
+  );
+
+  return (
+    <li
+      {...zona.props}
+      style={estilo}
+      className={`flex items-center gap-1.5 px-1 py-1 ${
+        zona.encima ? "ring-2 ring-inset ring-accent" : ""
+      }`}
+    >
+      {!bloqueado && (
+        <span
+          {...propsDeArrastre({ tipo: "lugar", id: slot.id })}
+          title="Arrastrar para cambiar de lugar"
+          aria-hidden
+          className={`flex size-6 shrink-0 cursor-grab items-center justify-center rounded active:cursor-grabbing ${
+            pintada ? "opacity-50 hover:opacity-100" : "text-border hover:text-muted"
+          }`}
+        >
+          <GripVertical size={14} />
+        </span>
+      )}
+
+      {/* La corona: una sola por grupo. Tocar la de otra persona se la pasa;
+          tocar la propia no la saca, porque un grupo sin caller no es un
+          estado que sirva para nada. */}
+      <button
+        type="button"
+        title={slot.is_leader ? "Tiene la corona" : "Darle la corona"}
+        aria-label={slot.is_leader ? "Tiene la corona" : "Darle la corona"}
+        aria-pressed={slot.is_leader}
+        disabled={bloqueado || slot.is_leader}
+        onClick={() => onRun(() => setLeader(grupoId, slot.id))}
+        className={`flex size-7 shrink-0 items-center justify-center rounded ${
+          slot.is_leader
+            ? pintada
+              ? "opacity-100"
+              : "text-accent"
+            : pintada
+              ? "opacity-0 hover:opacity-70 focus-visible:opacity-70"
+              : "text-border hover:text-muted"
+        }`}
+      >
+        <Crown size={15} fill={slot.is_leader ? "currentColor" : "none"} />
+      </button>
+
+      <BuildPeek build={build} />
+
+      <select
+        defaultValue={slot.build_id ?? ""}
+        disabled={bloqueado}
+        aria-label="Build"
+        onChange={(event) =>
+          onRun(() => updateSlot(slot.id, { build_id: event.target.value || null }))
+        }
+        className={`h-8 w-24 shrink-0 rounded border px-1 text-xs sm:w-32 ${campo}`}
+      >
+        <option value="">Build…</option>
+        {builds.map((b) => (
+          <option key={b.id} value={b.id}>
+            {b.name}
+          </option>
+        ))}
+      </select>
+
+      <select
+        defaultValue={slot.role_id ?? ""}
+        disabled={bloqueado}
+        aria-label="Rol"
+        onChange={(event) =>
+          onRun(() => updateSlot(slot.id, { role_id: event.target.value || null }))
+        }
+        className={`hidden h-8 w-24 shrink-0 rounded border px-1 text-xs sm:block ${campo}`}
+      >
+        <option value="">Rol…</option>
+        {roles.map((role) => (
+          <option key={role.id} value={role.id}>
+            {role.name}
+          </option>
+        ))}
+      </select>
+
+      <input
+        defaultValue={slot.player_name ?? ""}
+        disabled={bloqueado}
+        placeholder="Nombre"
+        aria-label="Nombre del jugador"
+        onBlur={(event) =>
+          onRun(() => updateSlot(slot.id, { player_name: event.target.value }))
+        }
+        className={`h-8 min-w-0 flex-1 rounded border px-2 text-xs ${campo}`}
+      />
+
+      {!bloqueado && (
+        <button
+          type="button"
+          onClick={() => onRun(() => deleteSlot(slot.id))}
+          aria-label="Quitar persona"
+          className={`flex size-7 shrink-0 items-center justify-center rounded ${
+            pintada ? "opacity-60 hover:opacity-100" : "text-muted hover:text-danger"
+          }`}
+        >
+          <X size={14} aria-hidden />
+        </button>
+      )}
+    </li>
   );
 }
 

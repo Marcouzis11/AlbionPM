@@ -18,7 +18,7 @@ export async function listFolders(gameId: string): Promise<BuildFolder[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("build_folders")
-    .select("id, parent_id, name, position")
+    .select("id, parent_id, name, color, position")
     .eq("game_id", gameId)
     .order("position")
     .order("name");

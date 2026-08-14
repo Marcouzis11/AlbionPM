@@ -10,7 +10,7 @@ import {
   type SharedComposition,
   type SharedSlot,
 } from "@/lib/shared-composition";
-import { tinteDeFila } from "@/lib/color";
+import { textoSobre } from "@/lib/color";
 
 /**
  * Vista pública de una composición. Es la pantalla que justifica el proyecto.
@@ -207,7 +207,11 @@ function FichaPersonal({
     >
       <div
         className="px-4 py-3"
-        style={{ background: build?.color ? tinteDeFila(build.color) : "var(--surface)" }}
+        style={
+          build?.color
+            ? { background: build.color, color: textoSobre(build.color) }
+            : { background: "var(--surface)" }
+        }
       >
         <p className="text-xl font-semibold">{slot.player_name}</p>
         <p className="mt-0.5 text-sm">
@@ -337,7 +341,14 @@ function GrupoCompleto({
             className={`flex flex-wrap items-center gap-2 px-3 py-1.5 text-sm ${
               slot === resaltado ? "ring-2 ring-inset ring-accent" : ""
             }`}
-            style={slot.build?.color ? { background: tinteDeFila(slot.build.color) } : undefined}
+            style={
+              slot.build?.color
+                ? {
+                    background: slot.build.color,
+                    color: textoSobre(slot.build.color),
+                  }
+                : undefined
+            }
           >
             <span className="w-4 text-accent">{slot.is_leader ? "★" : ""}</span>
 

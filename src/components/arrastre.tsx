@@ -27,7 +27,9 @@ export type Arrastrado =
   | { tipo: "composicion"; id: string; origen: string }
   | { tipo: "build"; id: string; origen: string | null }
   | { tipo: "carpeta"; id: string; origen: string | null }
-  | { tipo: "grupo"; id: string; position: number };
+  | { tipo: "grupo"; id: string; position: number }
+  /** Una persona dentro de un grupo, con todo lo que tenga anotado. */
+  | { tipo: "lugar"; id: string };
 
 let enVuelo: Arrastrado | null = null;
 

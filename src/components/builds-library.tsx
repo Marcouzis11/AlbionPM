@@ -5,6 +5,7 @@ import {
   Folder,
   FolderOpen,
   FolderPlus,
+  Palette,
   Pencil,
   Plus,
   Trash2,
@@ -22,6 +23,7 @@ import {
   moveFolder,
   renameFolder,
   reorderBuilds,
+  setFolderColor,
 } from "@/app/actions/builds";
 import {
   propsDeArrastre,
@@ -33,13 +35,14 @@ import type { UsedColor } from "@/components/color-picker";
 import { ItemIcon } from "@/components/item-icon";
 import { MoverA, type Destino } from "@/components/mover-a";
 import {
+  colorEfectivo,
   countFolderChildren,
   DISPOSICION_EQUIPO,
   type Build,
   type BuildFolder,
   type Role,
 } from "@/lib/builds-shared";
-import { textoSobre } from "@/lib/color";
+import { PALETA_CONTENIDOS, textoSobre } from "@/lib/color";
 
 /**
  * Biblioteca de builds.
@@ -265,6 +268,7 @@ export function BuildsLibrary({
           <TarjetaBuild
             key={build.id}
             build={build}
+            color={colorEfectivo(build, folders)}
             rolNombre={build.role_id ? roleById.get(build.role_id)?.name : undefined}
             carpetaNombre={
               conCarpeta && build.folder_id
@@ -314,6 +318,8 @@ export function BuildsLibrary({
                 setRenombrando(null);
                 if (nombre !== f.name) correr(() => renameFolder(f.id, nombre));
               }}
+              color={f.color}
+              onColor={(nuevo) => correr(() => setFolderColor(f.id, nuevo))}
               onEmpezarRenombre={() => setRenombrando(f.id)}
               onCancelarRenombre={() => setRenombrando(null)}
               onMover={(destino) =>
@@ -561,6 +567,8 @@ function FilaCarpeta({
   cuantas,
   renombrando,
   destinos,
+  color,
+  onColor,
   onAlternar,
   onRenombrar,
   onEmpezarRenombre,
@@ -579,6 +587,8 @@ function FilaCarpeta({
   cuantas: number;
   renombrando: boolean;
   destinos: Destino[];
+  color: string | null;
+  onColor: (color: string | null) => void;
   onAlternar: () => void;
   onRenombrar: (nombre: string) => void;
   onEmpezarRenombre: () => void;
@@ -618,11 +628,15 @@ function FilaCarpeta({
             abierta ? "rotate-90" : ""
           }`}
         />
-        {abierta ? (
-          <FolderOpen size={15} className="shrink-0 text-accent" aria-hidden />
-        ) : (
-          <Folder size={15} className="shrink-0 text-muted" aria-hidden />
-        )}
+        {/* El ícono lleva el color de la carpeta: es la única pista de que lo
+            que hay adentro se va a pintar así. */}
+        <span style={color ? { color } : undefined} className="shrink-0">
+          {abierta ? (
+            <FolderOpen size={15} className={color ? "" : "text-accent"} aria-hidden />
+          ) : (
+            <Folder size={15} className={color ? "" : "text-muted"} aria-hidden />
+          )}
+        </span>
 
         {renombrando ? (
           <input
@@ -665,6 +679,7 @@ function FilaCarpeta({
         >
           <FolderPlus size={14} aria-hidden />
         </button>
+        <ColorDeCarpeta nombre={folder.name} color={color} onElegir={onColor} />
         <button
           type="button"
           onClick={onEmpezarRenombre}
@@ -694,6 +709,89 @@ function FilaCarpeta({
 }
 
 /**
+ * El color de una carpeta.
+ *
+ * Se elige desde acá, sin entrar en la carpeta: es lo que permite pintar de una
+ * vez todas las builds que tiene adentro, y las de sus subcarpetas.
+ */
+function ColorDeCarpeta({
+  nombre,
+  color,
+  onElegir,
+}: {
+  nombre: string;
+  color: string | null;
+  onElegir: (color: string | null) => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+
+  return (
+    <span className="relative flex shrink-0 items-center">
+      <button
+        type="button"
+        onClick={() => setAbierto((v) => !v)}
+        aria-expanded={abierto}
+        aria-label={`Color de ${nombre}`}
+        title="Color de la carpeta"
+        className="flex size-7 items-center justify-center rounded text-muted transition-colors hover:text-text"
+      >
+        <span
+          className="size-3.5 rounded-full ring-1 ring-inset ring-black/20"
+          style={{ background: color ?? "transparent" }}
+        >
+          {!color && <Palette size={14} aria-hidden />}
+        </span>
+      </button>
+
+      {abierto && (
+        <>
+          <span
+            className="fixed inset-0 z-30"
+            onClick={() => setAbierto(false)}
+            aria-hidden
+          />
+          <div className="absolute right-0 top-full z-40 mt-1 w-44 rounded-xl border border-border bg-surface p-2 shadow-xl">
+            <p className="px-1 pb-1.5 text-[11px] font-medium text-muted">
+              Color de la carpeta
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {PALETA_CONTENIDOS.map((opcion) => (
+                <button
+                  key={opcion.hex}
+                  type="button"
+                  title={opcion.nombre}
+                  aria-label={opcion.nombre}
+                  onClick={() => {
+                    setAbierto(false);
+                    onElegir(opcion.hex);
+                  }}
+                  style={{ background: opcion.hex }}
+                  className={`size-6 rounded-lg ring-2 ring-offset-2 ring-offset-surface transition-[box-shadow] ${
+                    color === opcion.hex ? "ring-text" : "ring-transparent"
+                  }`}
+                />
+              ))}
+            </div>
+            {color && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAbierto(false);
+                  onElegir(null);
+                }}
+                className="mt-2 h-8 w-full rounded-lg border border-border text-xs text-muted transition-colors hover:bg-surface-2 hover:text-text"
+              >
+                Sacarle el color
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </span>
+  );
+}
+
+/**
  * Una build, como tarjeta.
  *
  * El color de la build pinta la tarjeta entera: es el mismo color que después
@@ -702,6 +800,7 @@ function FilaCarpeta({
  */
 function TarjetaBuild({
   build,
+  color,
   rolNombre,
   carpetaNombre,
   destinos,
@@ -711,6 +810,8 @@ function TarjetaBuild({
   onBorrar,
 }: {
   build: Build;
+  /** Ya resuelto por herencia: propio, o el de su carpeta. */
+  color: string | null;
   rolNombre: string | undefined;
   carpetaNombre: string | undefined;
   destinos: Destino[];
@@ -734,10 +835,8 @@ function TarjetaBuild({
   // la página y dejaba de servir para reconocer la build de lejos, que es todo
   // lo que este color tiene que hacer. Como puede ser cualquiera, el texto de
   // encima se elige por contraste y no a mano.
-  const conColor = build.color !== null;
-  const estilo = conColor
-    ? { background: build.color!, color: textoSobre(build.color!) }
-    : undefined;
+  const conColor = color !== null;
+  const estilo = conColor ? { background: color, color: textoSobre(color) } : undefined;
 
   return (
     <div
@@ -756,7 +855,7 @@ function TarjetaBuild({
             Los íconos no llevan recuadro: el ícono del juego YA viene recortado
             con su propio marco, así que dibujarle otro alrededor era ponerle un
             marco a un marco. */}
-        <div className="grid w-[8.5rem] shrink-0 grid-cols-3 gap-1">
+        <div className="grid w-[7.5rem] shrink-0 grid-cols-3 gap-px">
           {DISPOSICION_EQUIPO.flat().map((slot, indice) =>
             slot === null ? (
               <span key={`hueco-${indice}`} aria-hidden />

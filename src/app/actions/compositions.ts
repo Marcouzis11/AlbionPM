@@ -231,6 +231,51 @@ export async function updateSlot(
  * Hay que desmarcar al anterior ANTES de marcar al nuevo: la base tiene un
  * índice único de un solo líder por grupo y rechazaría el segundo.
  */
+/**
+ * Intercambia el contenido de dos lugares.
+ *
+ * Mueve la build, el rol, el nombre y la nota de una fila a la otra, en el
+ * mismo grupo o entre grupos distintos. Se intercambia el CONTENIDO y no las
+ * filas: así cada grupo conserva su cantidad de lugares y sus posiciones, que
+ * es lo que hace que la composición siga teniendo la forma que le diste.
+ *
+ * `is_leader` NO viaja. La corona es una por grupo: si viajara, mover a la
+ * persona que la tiene a otro grupo dejaría un grupo sin corona y otro con dos.
+ */
+export async function swapSlots(a: string, b: string): Promise<CompState> {
+  const supabase = await createClient();
+
+  const { data, error: errorLectura } = await supabase
+    .from("comp_slots")
+    .select("id, role_id, build_id, player_name, notes")
+    .in("id", [a, b]);
+
+  if (errorLectura) return { error: traducir(errorLectura.message) };
+  if (!data || data.length !== 2) return { error: "No se encontraron los dos lugares." };
+
+  const primero = data.find((s) => s.id === a);
+  const segundo = data.find((s) => s.id === b);
+  if (!primero || !segundo) return { error: "No se encontraron los dos lugares." };
+
+  const contenido = (s: typeof primero) => ({
+    role_id: s.role_id,
+    build_id: s.build_id,
+    player_name: s.player_name,
+    notes: s.notes,
+  });
+
+  const resultados = await Promise.all([
+    supabase.from("comp_slots").update(contenido(segundo)).eq("id", a),
+    supabase.from("comp_slots").update(contenido(primero)).eq("id", b),
+  ]);
+
+  const fallo = resultados.find((r) => r.error);
+  if (fallo?.error) return { error: traducir(fallo.error.message) };
+
+  revalidatePath("/app", "layout");
+  return {};
+}
+
 export async function setLeader(groupId: string, slotId: string): Promise<CompState> {
   const supabase = await createClient();
 
