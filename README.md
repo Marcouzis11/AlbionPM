@@ -112,11 +112,11 @@ Dos límites que conviene conocer: el plan Hobby de Vercel es **solo para uso no
 | Fase | Contenido | Estado |
 |---|---|---|
 | 0 | Documentación, scaffold y deploy | ✅ Listo |
-| 1 | Auth, esquema de base, temas y navegación | En curso |
-| 2 | Biblioteca de builds con carpetas, tags y colores | Pendiente |
-| 3 | Party maker, Disarray e historial | Pendiente |
-| 4 | Compartir y vista pública del jugador | Pendiente |
-| 5 | Calculadora | Pendiente |
+| 1 | Auth, esquema de base, temas y navegación | ✅ Listo |
+| 2 | Biblioteca de builds con carpetas, tags y colores | ✅ Listo |
+| 3 | Party maker, Disarray e historial | ✅ Listo |
+| 4 | Compartir y vista pública del jugador | ✅ Listo |
+| 5 | Calculadora | ✅ Listo |
 | 6 | Gremios y roster | Pendiente |
 | 7 | Hechizos e integración con Discord | Pendiente |
 
