@@ -57,8 +57,8 @@ const UPSTREAM_TIMEOUT_MS = 6000;
  * Un reintento alcanza: con el caché de 30 días, cada ícono golpea el origen
  * una sola vez y después lo sirve el CDN.
  */
-const UPSTREAM_ATTEMPTS = 2;
-const RETRY_DELAY_MS = 500;
+const UPSTREAM_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 400;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -131,8 +131,6 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/icon/[id
     }
   }
 
-  // Caché corto a propósito: si fue un problema pasajero del origen, queremos
-  // que el próximo intento lo resuelva, no que el fallo quede pegado 30 días.
   const missing = lastStatus === 404;
 
   return new Response(
@@ -144,7 +142,18 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/icon/[id
     {
       status: missing ? 404 : lastFailure === "timeout" ? 504 : 502,
       headers: {
-        "cache-control": `public, max-age=${missing ? 600 : 60}`,
+        // Los fallos NO se cachean. Medido: el servicio del juego falla de
+        // forma pasajera en cerca del 5% de los pedidos. Si el CDN guardara
+        // ese error, el reintento del navegador recibiría el fallo guardado
+        // en vez de volver a intentar, y el ícono quedaría roto durante todo
+        // lo que durara el caché. Cachear un error es convertir un problema
+        // de un segundo en uno de un minuto.
+        //
+        // El 404 sí se cachea un rato: hay items que realmente no tienen
+        // ícono, y no tiene sentido preguntar por ellos en cada visita.
+        "cache-control": missing
+          ? "public, max-age=600"
+          : "no-store, must-revalidate",
         // Deja rastro de qué contestó el origen. Sin esto, un fallo en
         // producción es indistinguible de otro y no hay nada que investigar.
         "x-upstream-status": String(lastStatus),
