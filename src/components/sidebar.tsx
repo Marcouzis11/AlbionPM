@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useActionState, useState } from "react";
 
 import { createContent, type ContentState } from "@/app/actions/contents";
+import { Calculator } from "@/components/calculator";
 import type { Content, Game } from "@/lib/data/contents";
 
 /**
@@ -25,6 +26,9 @@ type Props = {
 export function Sidebar({ game, games, contents }: Props) {
   const pathname = usePathname();
   const [creating, setCreating] = useState(false);
+  // Vive acá porque la barra lateral está en el layout: así el panel y lo que
+  // llevabas sumado sobreviven a navegar entre composiciones.
+  const [calcAbierta, setCalcAbierta] = useState(false);
   const [state, action, pending] = useActionState(createContent, EMPTY);
 
   const base = `/app/${game.slug}`;
@@ -136,7 +140,19 @@ export function Sidebar({ game, games, contents }: Props) {
         >
           Historial
         </SidebarLink>
+
+        <button
+          type="button"
+          onClick={() => setCalcAbierta((v) => !v)}
+          className={`block w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors ${
+            calcAbierta ? "bg-surface-2 text-text" : "text-muted hover:bg-surface-2 hover:text-text"
+          }`}
+        >
+          Calculadora
+        </button>
       </section>
+
+      {calcAbierta && <Calculator onClose={() => setCalcAbierta(false)} />}
     </nav>
   );
 }

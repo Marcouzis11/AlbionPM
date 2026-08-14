@@ -30,5 +30,12 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    // Los scripts de `scripts/` los ejecuta Node directamente, no Next, y usan
+    // imports con extensión `.ts` como pide Node. Verificarlos con la
+    // configuración de Next hace fallar el build por una regla que no les
+    // corresponde.
+    "scripts"
+  ]
 }
