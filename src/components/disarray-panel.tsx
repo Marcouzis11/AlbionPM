@@ -28,7 +28,7 @@ export function DisarrayPanel({
   const perdida = enemigos > 0 ? perdidaPorcentual(propio, rival) : null;
 
   return (
-    <aside className="w-64 shrink-0 space-y-4 rounded-xl border border-border bg-surface p-4">
+    <aside className="space-y-4 rounded-xl border border-border bg-surface p-4">
       <div>
         <h3 className="text-sm font-medium">Disarray estimado</h3>
         <p className="mt-0.5 text-[11px] leading-relaxed text-muted">

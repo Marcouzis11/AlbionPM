@@ -15,6 +15,7 @@ import {
   updateSlot,
 } from "@/app/actions/compositions";
 import { DisarrayPanel } from "@/components/disarray-panel";
+import { SharePanel } from "@/components/share-panel";
 import { ItemIcon } from "@/components/item-icon";
 import type { Build, Role } from "@/lib/builds-shared";
 import {
@@ -135,7 +136,15 @@ export function CompositionEditor({ composition, builds, roles }: Props) {
           )}
         </div>
 
-        <DisarrayPanel confirmados={confirmados} lugares={lugares} />
+        <div className="w-64 shrink-0 space-y-4">
+          <DisarrayPanel confirmados={confirmados} lugares={lugares} />
+          <SharePanel
+            compositionId={composition.id}
+            slug={composition.share_slug}
+            visibility={composition.visibility}
+            formats={{}}
+          />
+        </div>
       </div>
 
       {vaciando && (
