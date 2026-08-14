@@ -7,7 +7,7 @@ import {
   useZonaDeSoltar,
   type Arrastrado,
 } from "@/components/arrastre";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 /**
  * Carpetas: la ficha, la grilla y la apertura en el lugar.
@@ -20,15 +20,13 @@ import { useEffect, useState } from "react";
  * cuerpo debajo. Es lo que hace que se entienda sin leer nada que eso se abre
  * y tiene cosas adentro.
  *
- * Abrir NO te saca de la pantalla y TAMPOCO mueve las carpetas. El panel vive
- * fuera de la grilla, siempre debajo: la fila de fichas se queda quieta y lo
- * que hay adentro aparece siempre en el mismo lugar. Antes el panel era una
- * celda más y se metía en el medio, así que abrir la primera carpeta empujaba
- * a las otras cuatro fuera de la vista, que es justo lo que uno no quiere
- * mientras compara.
+ * La pantalla se parte en dos: las carpetas en una columna angosta a la
+ * izquierda y el panel ocupando todo el resto. Elegir una carpeta cambia lo que
+ * hay en el panel y nada más, así que las carpetas nunca se mueven de lugar y
+ * mirás siempre al mismo punto de la pantalla.
  *
- * Por eso también hay una sola abierta por nivel: con el panel en un lugar
- * fijo, dos abiertas apilarían dos paneles y volvería el mismo problema.
+ * De ahí que haya una sola abierta: el panel es un lugar fijo, y dos abiertas
+ * no tendrían dónde ponerse sin volver a empujar todo hacia abajo.
  */
 
 export type FichaDeCarpeta = {
@@ -60,88 +58,57 @@ export type FichaDeCarpeta = {
   };
 };
 
-/** Lo que tarda el panel en abrirse y cerrarse. El CSS usa el mismo número. */
-const DURACION = 300;
-
 export function GrillaCarpetas({
   carpetas,
   inicialAbierta = null,
-  anidada = false,
+  vacio,
 }: {
   carpetas: FichaDeCarpeta[];
-  /** Cuál arranca abierta. Sin esto, una pantalla de carpetas cerradas no
-      muestra nada de lo que la persona vino a buscar. */
+  /** Cuál arranca abierta. `null` deja el panel en su estado de bienvenida. */
   inicialAbierta?: string | null;
-  /** Una grilla dentro de un panel: fichas más chicas para marcar el nivel. */
-  anidada?: boolean;
+  /** Qué decir en el panel cuando todavía no elegiste ninguna carpeta. */
+  vacio: { titulo: string; detalle: string };
 }) {
-  // La selección vive acá adentro y no arriba: en Builds hay grillas dentro de
-  // grillas, y cada nivel tiene que poder tener la suya abierta sin cerrar la
-  // del nivel de arriba.
   const [abierta, setAbierta] = useState<string | null>(inicialAbierta);
 
-  // La que se está cerrando sigue montada hasta terminar de plegarse. Sin esto
-  // desaparecería de golpe y solo se vería la animación de ida.
-  const [mostrando, setMostrando] = useState<string | null>(inicialAbierta);
-
-  function alternar(id: string) {
-    if (abierta === id) {
-      // Cerrar solo suelta la selección: el panel sigue montado hasta que el
-      // efecto de abajo lo desmonta, ya terminada la animación.
-      setAbierta(null);
-      return;
-    }
-    setAbierta(id);
-    setMostrando(id);
-  }
-
-  useEffect(() => {
-    if (abierta !== null) return;
-    // Un temporizador y no `transitionend`: con `prefers-reduced-motion` no hay
-    // transición, el evento nunca llega y el panel quedaría montado para
-    // siempre.
-    const timer = setTimeout(() => setMostrando(null), DURACION);
-    return () => clearTimeout(timer);
-  }, [abierta]);
-
-  const visible = carpetas.find((c) => c.id === mostrando);
+  const visible = carpetas.find((c) => c.id === abierta);
 
   return (
-    <div>
-      {/* La grilla no se toca nunca. El panel vive FUERA de ella, así abrir una
-          carpeta no parte la fila ni empuja a las demás hacia abajo: las fichas
-          se quedan donde estaban y lo que cambia es siempre el mismo lugar,
-          justo debajo. */}
-      <ul
-        className={
-          anidada
-            ? "grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4"
-            : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-        }
-      >
+    // Dos columnas desde `lg`: las carpetas a la izquierda, angostas, y el
+    // panel ocupando todo el resto. Abajo de `lg` se apilan, porque en un
+    // celular dos columnas dejarían las dos inservibles.
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:items-start">
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-2">
         {carpetas.map((carpeta) => (
           <li key={carpeta.id}>
             <Ficha
               carpeta={carpeta}
               abierta={abierta === carpeta.id}
-              onAlternar={() => alternar(carpeta.id)}
+              onAlternar={() =>
+                setAbierta((previa) => (previa === carpeta.id ? null : carpeta.id))
+              }
             />
           </li>
         ))}
       </ul>
 
-      {visible && (
-        <Panel abierto={abierta !== null}>
-          {/* La `key` hace que al pasar de una carpeta a otra el contenido
-              vuelva a entrar escalonado, en vez de cambiar de golpe y dejarte
-              dudando de si se actualizó. */}
+      {/* El panel se queda quieto en su columna. Elegir otra carpeta cambia lo
+          que hay adentro y nada más: las carpetas no se mueven de lugar. */}
+      <div className="min-w-0">
+        {visible ? (
           <CuerpoPanel
             key={visible.id}
             carpeta={visible}
             onCerrar={() => setAbierta(null)}
           />
-        </Panel>
-      )}
+        ) : (
+          <div className="flex min-h-64 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border p-10 text-center">
+            <Folder size={30} className="text-muted" aria-hidden />
+            <p className="font-medium">{vacio.titulo}</p>
+            <p className="max-w-sm text-sm text-muted">{vacio.detalle}</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -219,33 +186,6 @@ function Ficha({
 }
 
 /**
- * El panel desplegado.
- *
- * La animación va de `grid-rows: 0fr` a `1fr`, que es la forma de animar «alto
- * automático» sin inventar alturas a mano: lo de abajo se corre acompañando la
- * apertura en vez de saltar.
- */
-function Panel({ abierto, children }: { abierto: boolean; children: React.ReactNode }) {
-  // Monta cerrado y abre en el cuadro siguiente. Si naciera abierto no habría
-  // desde dónde animar y el panel aparecería de golpe.
-  const [listo, setListo] = useState(false);
-  useEffect(() => {
-    const cuadro = requestAnimationFrame(() => setListo(true));
-    return () => cancelAnimationFrame(cuadro);
-  }, []);
-
-  return (
-    <div
-      className={`grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none ${
-        abierto && listo ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-      }`}
-    >
-      <div className="overflow-hidden">{children}</div>
-    </div>
-  );
-}
-
-/**
  * El encabezado dice de qué carpeta es lo que estás viendo.
  *
  * El panel ocupa el ancho completo y arranca debajo de una fila con varias
@@ -262,7 +202,7 @@ function CuerpoPanel({
 
   return (
     <div
-      className="mt-3 rounded-xl border bg-surface"
+      className="rounded-xl border bg-surface"
       style={{ borderColor: `color-mix(in srgb, ${color} 45%, var(--border))` }}
     >
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">

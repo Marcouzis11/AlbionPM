@@ -4,7 +4,7 @@ import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 
 import { ItemIcon } from "@/components/item-icon";
-import type { Build } from "@/lib/builds-shared";
+import { DISPOSICION_EQUIPO, type Build } from "@/lib/builds-shared";
 import type { EquipmentSlot } from "@/lib/items";
 
 /**
@@ -30,14 +30,6 @@ const SLOT_LABELS: Record<EquipmentSlot, string> = {
   potion: "Poción",
   mount: "Montura",
 };
-
-/** Misma disposición que el editor de builds y que el juego. */
-const DISPOSICION: (EquipmentSlot | null)[][] = [
-  [null, "head", "cape"],
-  ["mainhand", "armor", "offhand"],
-  ["mount", "shoes", "potion"],
-  [null, null, "food"],
-];
 
 export function BuildPeek({ build }: { build: Build | undefined }) {
   const [abierto, setAbierto] = useState(false);
@@ -92,7 +84,7 @@ export function BuildPeek({ build }: { build: Build | undefined }) {
             <span className="mb-2 block truncate text-xs font-medium">{build.name}</span>
 
             <span className="grid grid-cols-3 gap-1.5">
-              {DISPOSICION.flat().map((slot, indice) =>
+              {DISPOSICION_EQUIPO.flat().map((slot, indice) =>
                 slot === null ? (
                   <span key={`v-${indice}`} aria-hidden />
                 ) : (

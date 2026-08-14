@@ -1,4 +1,4 @@
-import type { BuildItem } from "@/lib/items";
+import type { BuildItem, EquipmentSlot } from "@/lib/items";
 
 /**
  * Tipos y lógica pura de la biblioteca de builds.
@@ -8,6 +8,20 @@ import type { BuildItem } from "@/lib/items";
  * tipos y este cálculo, y no pueden arrastrar el cliente de Supabase del
  * servidor al bundle.
  */
+
+/**
+ * El equipo, acomodado como en el panel de personaje del juego.
+ *
+ * Los huecos `null` no son relleno: son las celdas vacías que tiene el panel
+ * original. Respetarlas es lo que hace que alguien que juega reconozca de un
+ * vistazo qué pieza es cuál, sin leer una etiqueta.
+ */
+export const DISPOSICION_EQUIPO: (EquipmentSlot | null)[][] = [
+  [null, "head", "cape"],
+  ["mainhand", "armor", "offhand"],
+  ["mount", "shoes", "potion"],
+  [null, null, "food"],
+];
 
 export type BuildFolder = {
   id: string;

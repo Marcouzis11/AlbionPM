@@ -240,6 +240,11 @@ export function PartyMaker({
           // La primera arranca abierta: una pantalla de carpetas todas
           // cerradas no muestra nada de lo que la persona vino a buscar.
           inicialAbierta={contents[0]?.id ?? null}
+          vacio={{
+            titulo: "Elegí una carpeta",
+            detalle:
+              "Tocá uno de tus contenidos para ver sus composiciones y crear una nueva.",
+          }}
         />
       )}
 

@@ -34,6 +34,7 @@ import { ItemIcon } from "@/components/item-icon";
 import { MoverA, type Destino } from "@/components/mover-a";
 import {
   countFolderChildren,
+  DISPOSICION_EQUIPO,
   type Build,
   type BuildFolder,
   type Role,
@@ -60,8 +61,18 @@ const RAIZ = "__raiz__";
 /** Cuánto se muestra de la nota antes de cortar. Una tarjeta no es un editor. */
 const LIMITE_NOTA = 120;
 
-/** Lo que se ve en la tarjeta. El resto del equipo está en el editor. */
-const VISIBLES = ["mainhand", "offhand", "head", "armor", "shoes"] as const;
+/** Etiquetas de los casilleros vacíos del equipo. */
+const SIGLAS: Record<string, string> = {
+  mainhand: "Arma",
+  offhand: "Off",
+  head: "Cab",
+  armor: "Pech",
+  shoes: "Bot",
+  cape: "Capa",
+  food: "Com",
+  potion: "Poc",
+  mount: "Mont",
+};
 
 export function BuildsLibrary({
   gameId,
@@ -82,6 +93,7 @@ export function BuildsLibrary({
     // nada de lo que la persona vino a buscar.
     () => new Set(folders.filter((f) => f.parent_id === null).map((f) => f.id)),
   );
+  const [seleccionada, setSeleccionada] = useState<string | null>(null);
   const [renombrando, setRenombrando] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
@@ -246,12 +258,9 @@ export function BuildsLibrary({
     correr(() => reorderBuilds(lista.map((b) => ({ id: b.id, position: b.position }))));
   }
 
-  function grillaDeBuilds(propias: Build[], nivel: number, conCarpeta: boolean) {
+  function grillaDeBuilds(propias: Build[], conCarpeta: boolean) {
     return (
-      <div
-        className="aparece-escalonado grid gap-2.5 py-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
-        style={{ marginLeft: nivel * 18 + 6 }}
-      >
+      <div className="aparece-escalonado grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {propias.map((build) => (
           <TarjetaBuild
             key={build.id}
@@ -275,10 +284,15 @@ export function BuildsLibrary({
     );
   }
 
-  /** Una carpeta y todo lo que cuelga de ella. Se llama a sí misma por nivel. */
+  /**
+   * El árbol de carpetas. Se llama a sí mismo por nivel.
+   *
+   * Solo carpetas: las builds ya no cuelgan de acá, viven en la columna ancha
+   * de al lado. Mezclarlas dentro del árbol era lo que dejaba la tarjeta de una
+   * build apretada contra el borde de una columna de un cuarto de pantalla.
+   */
   function rama(parentId: string | null, nivel: number): React.ReactNode {
     const subcarpetas = folders.filter((f) => f.parent_id === parentId);
-    const propias = buildsDe(parentId);
 
     return (
       <>
@@ -288,10 +302,14 @@ export function BuildsLibrary({
               folder={f}
               nivel={nivel}
               abierta={abiertas.has(f.id)}
+              seleccionada={seleccionada === f.id}
               cuantas={countFolderChildren(f.id, folders, builds).builds}
               renombrando={renombrando === f.id}
               destinos={destinos(f.parent_id, f.id)}
-              onAlternar={() => alternar(f.id)}
+              onAlternar={() => {
+                setSeleccionada(f.id);
+                alternar(f.id);
+              }}
               onRenombrar={(nombre) => {
                 setRenombrando(null);
                 if (nombre !== f.name) correr(() => renameFolder(f.id, nombre));
@@ -321,13 +339,11 @@ export function BuildsLibrary({
             {abiertas.has(f.id) && rama(f.id, nivel + 1)}
           </Fragment>
         ))}
-
-        {propias.length > 0 && grillaDeBuilds(propias, nivel, false)}
       </>
     );
   }
 
-  const hayAlgo = folders.length > 0 || builds.length > 0;
+  const deLaSeleccionada = buildsDe(seleccionada);
 
   return (
     <div className="space-y-4">
@@ -400,16 +416,61 @@ export function BuildsLibrary({
         resultados.length === 0 ? (
           <Vacio>Ninguna build coincide con el filtro.</Vacio>
         ) : (
-          grillaDeBuilds(resultados, 0, true)
+          grillaDeBuilds(resultados, true)
         )
-      ) : hayAlgo ? (
-        <div className="rounded-xl border border-border bg-surface p-2">
-          {rama(null, 0)}
-        </div>
       ) : (
-        <Vacio>
-          Todavía no tenés builds ni carpetas. Creá la primera con los botones de arriba.
-        </Vacio>
+        // Tres cuartos para las builds y un cuarto para el árbol. Las carpetas
+        // se tocan de vez en cuando; las builds se miran todo el tiempo, así
+        // que el ancho va donde está el trabajo.
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,1fr)] lg:items-start">
+          <div className="min-w-0 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-medium">
+                {seleccionada ? folderById.get(seleccionada)?.name : "Fuera de toda carpeta"}
+              </h2>
+              <span className="text-sm text-muted">
+                {deLaSeleccionada.length === 1
+                  ? "1 build"
+                  : `${deLaSeleccionada.length} builds`}
+              </span>
+              <button
+                type="button"
+                onClick={() => nuevaBuild(seleccionada)}
+                className="ml-auto flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-sm transition-colors hover:bg-surface-2"
+              >
+                <Plus size={14} aria-hidden />
+                Nueva build acá
+              </button>
+            </div>
+
+            {deLaSeleccionada.length > 0 ? (
+              grillaDeBuilds(deLaSeleccionada, false)
+            ) : (
+              <Vacio>
+                {seleccionada
+                  ? "Esta carpeta no tiene builds. Creá la primera o arrastrá una desde otra."
+                  : "No hay builds sueltas. Elegí una carpeta a la derecha."}
+              </Vacio>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-border bg-surface p-2 lg:sticky lg:top-2">
+            <FilaRaiz
+              seleccionada={seleccionada === null}
+              cuantas={buildsDe(null).length}
+              onSeleccionar={() => setSeleccionada(null)}
+              acepta={(dato) =>
+                (dato.tipo === "build" && dato.origen !== null) ||
+                (dato.tipo === "carpeta" && dato.origen !== null)
+              }
+              onSoltar={(dato) => {
+                if (dato.tipo === "build") correr(() => moveBuild(dato.id, null));
+                if (dato.tipo === "carpeta") correr(() => moveFolder(dato.id, null));
+              }}
+            />
+            {rama(null, 0)}
+          </div>
+        </div>
       )}
 
       {editing && (
@@ -437,6 +498,50 @@ export function BuildsLibrary({
 }
 
 /**
+ * La raíz del árbol.
+ *
+ * Es una fila más y no un caso especial escondido: las builds que no están en
+ * ninguna carpeta existen, y sin una fila que las represente no habría forma de
+ * verlas ni de arrastrar algo de vuelta afuera.
+ */
+function FilaRaiz({
+  seleccionada,
+  cuantas,
+  onSeleccionar,
+  acepta,
+  onSoltar,
+}: {
+  seleccionada: boolean;
+  cuantas: number;
+  onSeleccionar: () => void;
+  acepta: (dato: Arrastrado) => boolean;
+  onSoltar: (dato: Arrastrado) => void;
+}) {
+  const zona = useZonaDeSoltar(acepta, onSoltar);
+
+  return (
+    <button
+      type="button"
+      {...zona.props}
+      onClick={onSeleccionar}
+      className={`flex min-h-9 w-full items-center gap-1.5 rounded-lg px-1.5 py-1 text-left transition-colors ${
+        zona.encima
+          ? "bg-accent/15 ring-1 ring-accent"
+          : seleccionada
+            ? "bg-surface-2"
+            : "hover:bg-surface-2"
+      }`}
+    >
+      <Folder size={15} className="shrink-0 text-muted" aria-hidden />
+      <span className="min-w-0 flex-1 truncate text-sm">Fuera de toda carpeta</span>
+      {cuantas > 0 && (
+        <span className="shrink-0 text-xs tabular-nums text-muted">{cuantas}</span>
+      )}
+    </button>
+  );
+}
+
+/**
  * Una carpeta en el árbol.
  *
  * La sangría es un margen y no caracteres de relleno: así el nombre se puede
@@ -447,6 +552,7 @@ function FilaCarpeta({
   folder,
   nivel,
   abierta,
+  seleccionada,
   cuantas,
   renombrando,
   destinos,
@@ -464,6 +570,7 @@ function FilaCarpeta({
   folder: BuildFolder;
   nivel: number;
   abierta: boolean;
+  seleccionada: boolean;
   cuantas: number;
   renombrando: boolean;
   destinos: Destino[];
@@ -486,7 +593,11 @@ function FilaCarpeta({
       {...propsDeArrastre({ tipo: "carpeta", id: folder.id, origen: folder.parent_id })}
       style={{ paddingLeft: nivel * 18 + 4 }}
       className={`group flex min-h-9 items-center gap-1 rounded-lg pr-1 transition-colors ${
-        zona.encima ? "bg-accent/15 ring-1 ring-accent" : "hover:bg-surface-2"
+        zona.encima
+          ? "bg-accent/15 ring-1 ring-accent"
+          : seleccionada
+            ? "bg-surface-2"
+            : "hover:bg-surface-2"
       }`}
     >
       <button
@@ -627,43 +738,59 @@ function TarjetaBuild({
           : { borderColor: "var(--border)" }
       }
     >
-      <div className="flex gap-1">
-        {VISIBLES.map((slot) =>
-          build.items[slot] ? (
-            <ItemIcon key={slot} item={build.items[slot]} size={44} />
-          ) : (
-            <span
-              key={slot}
-              className="size-11 shrink-0 rounded-lg border border-dashed border-border"
-            />
-          ),
-        )}
+      <div className="flex gap-3">
+        {/* El equipo acomodado como el panel de personaje del juego. Quien
+            juega reconoce la pieza por su lugar, sin leer ninguna etiqueta, y
+            los huecos vacíos del panel original se respetan por lo mismo. */}
+        <div className="grid w-[8.5rem] shrink-0 grid-cols-3 gap-1">
+          {DISPOSICION_EQUIPO.flat().map((slot, indice) =>
+            slot === null ? (
+              <span key={`hueco-${indice}`} aria-hidden />
+            ) : (
+              <span
+                key={slot}
+                title={SIGLAS[slot]}
+                className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-surface-2"
+              >
+                {build.items[slot] ? (
+                  <ItemIcon item={build.items[slot]} size={64} className="size-full" />
+                ) : (
+                  <span className="text-[9px] leading-none text-muted">
+                    {SIGLAS[slot]}
+                  </span>
+                )}
+              </span>
+            ),
+          )}
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <div className="min-w-0">
+            <p className="truncate font-medium" title={build.name}>
+              {build.name}
+            </p>
+            <p className="truncate text-xs text-muted">
+              {rolNombre ?? "Sin rol"}
+              {carpetaNombre ? ` · ${carpetaNombre}` : ""}
+            </p>
+          </div>
+
+          {build.tags.length > 0 && (
+            <ul className="flex flex-wrap gap-1">
+              {build.tags.map((tag) => (
+                <li
+                  key={tag}
+                  className="rounded-lg bg-surface-2 px-1.5 py-0.5 text-[11px] text-muted"
+                >
+                  {tag}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {nota && <p className="text-xs leading-snug text-muted">{nota}</p>}
+        </div>
       </div>
-
-      <div className="min-w-0">
-        <p className="truncate font-medium" title={build.name}>
-          {build.name}
-        </p>
-        <p className="truncate text-xs text-muted">
-          {rolNombre ?? "Sin rol"}
-          {carpetaNombre ? ` · ${carpetaNombre}` : ""}
-        </p>
-      </div>
-
-      {build.tags.length > 0 && (
-        <ul className="flex flex-wrap gap-1">
-          {build.tags.map((tag) => (
-            <li
-              key={tag}
-              className="rounded-lg bg-surface-2 px-1.5 py-0.5 text-[11px] text-muted"
-            >
-              {tag}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {nota && <p className="text-xs leading-snug text-muted">{nota}</p>}
 
       <div className="mt-auto flex items-center gap-1 pt-1">
         <button
