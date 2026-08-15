@@ -244,6 +244,10 @@ function Tarjeta({
         color ? "border-current/25" : "border-border bg-surface"
       } ${elegida ? "ring-2 ring-accent" : ""}`}
     >
+      <span className="block truncate text-sm font-medium leading-tight">
+        {build.name}
+      </span>
+
       <span className="grid w-full grid-cols-3">
         {DISPOSICION_EQUIPO.flat().map((slot, indice) =>
           slot === null ? (
@@ -263,10 +267,6 @@ function Tarjeta({
             />
           ),
         )}
-      </span>
-
-      <span className="block truncate text-sm font-medium leading-tight">
-        {build.name}
       </span>
     </button>
   );
