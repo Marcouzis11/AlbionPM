@@ -10,8 +10,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { Fragment, useMemo, useRef, useState, useTransition } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 
 import {
   countBuildUsage,
@@ -37,6 +36,7 @@ import { Flotante } from "@/components/flotante";
 import { ColorPicker, type UsedColor } from "@/components/color-picker";
 import { ItemIcon } from "@/components/item-icon";
 import { MoverA, type Destino } from "@/components/mover-a";
+import { idProvisional, useOptimista } from "@/components/optimista";
 import {
   colorEfectivo,
   countFolderChildren,
@@ -82,8 +82,8 @@ const SIGLAS: Record<string, string> = {
 
 export function BuildsLibrary({
   gameId,
-  folders,
-  builds,
+  folders: foldersDelServidor,
+  builds: buildsDelServidor,
   roles,
 }: {
   gameId: string;
@@ -91,13 +91,20 @@ export function BuildsLibrary({
   builds: Build[];
   roles: Role[];
 }) {
-  const router = useRouter();
-  const [, startTransition] = useTransition();
+  // Todo lo que se toca acá tarda un viaje de red: crear, renombrar, pintar,
+  // mover, borrar. Se muestra hecho y se confirma por atrás.
+  const carpetasOpt = useOptimista<BuildFolder>(foldersDelServidor);
+  const buildsOpt = useOptimista<Build>(buildsDelServidor);
+  const folders = carpetasOpt.lista;
+  const builds = buildsOpt.lista;
 
   const [abiertas, setAbiertas] = useState<Set<string>>(
     // Las de primer nivel arrancan abiertas: un árbol todo plegado no muestra
     // nada de lo que la persona vino a buscar.
-    () => new Set(folders.filter((f) => f.parent_id === null).map((f) => f.id)),
+    () =>
+      new Set(
+        foldersDelServidor.filter((f) => f.parent_id === null).map((f) => f.id),
+      ),
   );
   const [seleccionada, setSeleccionada] = useState<string | null>(null);
   const [renombrando, setRenombrando] = useState<string | null>(null);
@@ -163,13 +170,6 @@ export function BuildsLibrary({
     return salida;
   }, [folders, folderById]);
 
-  function correr(fn: () => Promise<unknown>) {
-    startTransition(async () => {
-      await fn();
-      router.refresh();
-    });
-  }
-
   function alternar(id: string) {
     setAbiertas((previo) => {
       const siguiente = new Set(previo);
@@ -215,17 +215,37 @@ export function BuildsLibrary({
   function nuevaCarpeta(parentId: string | null) {
     const name = window.prompt("Nombre de la carpeta");
     if (!name?.trim()) return;
-    correr(async () => {
-      await createFolder(gameId, name, parentId);
-      if (parentId) abrir(parentId);
-    });
+    if (parentId) abrir(parentId);
+    carpetasOpt.agregar(
+      {
+        id: idProvisional(),
+        parent_id: parentId,
+        name: name.trim(),
+        color: null,
+        position: folders.length,
+      },
+      () => createFolder(gameId, name, parentId),
+    );
   }
 
   function nuevaBuild(folderId: string | null) {
-    correr(async () => {
-      await createBuild(gameId, folderId);
-      if (folderId) abrir(folderId);
-    });
+    if (folderId) abrir(folderId);
+    setSeleccionada(folderId);
+    buildsOpt.agregar(
+      {
+        id: idProvisional(),
+        folder_id: folderId,
+        name: "Build sin nombre",
+        role_id: null,
+        color: null,
+        tags: [],
+        items: {},
+        notes: null,
+        position: builds.length,
+        updated_at: new Date().toISOString(),
+      },
+      () => createBuild(gameId, folderId),
+    );
   }
 
   async function pedirBorrarBuild(build: Build) {
@@ -253,13 +273,22 @@ export function BuildsLibrary({
           conCarpeta && build.folder_id ? folderById.get(build.folder_id)?.name : undefined
         }
         destinosDe={(build) => destinos(build.folder_id)}
-        onMoverA={(buildId, destino) =>
-          correr(() => moveBuild(buildId, destino === RAIZ ? null : destino))
-        }
+        onMoverA={(buildId, destino) => {
+          const carpeta = destino === RAIZ ? null : destino;
+          buildsOpt.editar(buildId, { folder_id: carpeta }, () =>
+            moveBuild(buildId, carpeta),
+          );
+        }}
         onReordenar={(orden) =>
-          correr(() => reorderBuilds(orden.map((b) => ({ id: b.id, position: b.position }))))
+          buildsOpt.hacer(() =>
+            reorderBuilds(orden.map((b) => ({ id: b.id, position: b.position }))),
+          )
         }
-        onTraer={(buildId, carpeta) => correr(() => moveBuild(buildId, carpeta))}
+        onTraer={(buildId, carpeta) =>
+          buildsOpt.editar(buildId, { folder_id: carpeta }, () =>
+            moveBuild(buildId, carpeta),
+          )
+        }
         onEditar={setEditing}
         onBorrar={pedirBorrarBuild}
       />
@@ -294,16 +323,27 @@ export function BuildsLibrary({
               }}
               onRenombrar={(nombre) => {
                 setRenombrando(null);
-                if (nombre !== f.name) correr(() => renameFolder(f.id, nombre));
+                if (nombre !== f.name) {
+                  carpetasOpt.editar(f.id, { name: nombre }, () =>
+                    renameFolder(f.id, nombre),
+                  );
+                }
               }}
               color={f.color}
               usedColors={usedColors}
-              onColor={(nuevo) => correr(() => setFolderColor(f.id, nuevo))}
+              onColor={(nuevo) =>
+                carpetasOpt.editar(f.id, { color: nuevo }, () =>
+                  setFolderColor(f.id, nuevo),
+                )
+              }
               onEmpezarRenombre={() => setRenombrando(f.id)}
               onCancelarRenombre={() => setRenombrando(null)}
-              onMover={(destino) =>
-                correr(() => moveFolder(f.id, destino === RAIZ ? null : destino))
-              }
+              onMover={(destino) => {
+                const padre = destino === RAIZ ? null : destino;
+                carpetasOpt.editar(f.id, { parent_id: padre }, () =>
+                  moveFolder(f.id, padre),
+                );
+              }}
               acepta={(dato) =>
                 (dato.tipo === "build" && dato.origen !== f.id) ||
                 (dato.tipo === "carpeta" &&
@@ -313,8 +353,16 @@ export function BuildsLibrary({
               }
               onSoltar={(dato) => {
                 abrir(f.id);
-                if (dato.tipo === "build") correr(() => moveBuild(dato.id, f.id));
-                if (dato.tipo === "carpeta") correr(() => moveFolder(dato.id, f.id));
+                if (dato.tipo === "build") {
+                  buildsOpt.editar(dato.id, { folder_id: f.id }, () =>
+                    moveBuild(dato.id, f.id),
+                  );
+                }
+                if (dato.tipo === "carpeta") {
+                  carpetasOpt.editar(dato.id, { parent_id: f.id }, () =>
+                    moveFolder(dato.id, f.id),
+                  );
+                }
               }}
               onNuevaBuild={() => nuevaBuild(f.id)}
               onNuevaCarpeta={() => nuevaCarpeta(f.id)}
@@ -410,8 +458,16 @@ export function BuildsLibrary({
                 (dato.tipo === "carpeta" && dato.origen !== null)
               }
               onSoltar={(dato) => {
-                if (dato.tipo === "build") correr(() => moveBuild(dato.id, null));
-                if (dato.tipo === "carpeta") correr(() => moveFolder(dato.id, null));
+                if (dato.tipo === "build") {
+                  buildsOpt.editar(dato.id, { folder_id: null }, () =>
+                    moveBuild(dato.id, null),
+                  );
+                }
+                if (dato.tipo === "carpeta") {
+                  carpetasOpt.editar(dato.id, { parent_id: null }, () =>
+                    moveFolder(dato.id, null),
+                  );
+                }
               }}
             />
             {rama(null, 0)}
@@ -459,7 +515,11 @@ export function BuildsLibrary({
           roles={roles}
           usedColors={usedColors}
           onClose={() => setEditing(null)}
-          onSaved={() => router.refresh()}
+          // El editor ya guardó cuando avisa; lo que falta es que la tarjeta
+          // muestre lo nuevo sin esperar a que vuelva la pantalla entera.
+          onSaved={(guardada) =>
+            buildsOpt.editar(guardada.id, guardada, async () => undefined)
+          }
         />
       )}
 
@@ -467,11 +527,27 @@ export function BuildsLibrary({
         <DialogoBorrado
           confirmacion={confirm}
           onCancel={() => setConfirm(null)}
-          onDone={() => {
+          onBorrar={(rescatar) => {
+            const actual = confirm;
             setConfirm(null);
-            router.refresh();
+            if (actual.tipo === "build") {
+              buildsOpt.quitar(actual.build.id, () => deleteBuild(actual.build.id));
+            } else {
+              carpetasOpt.quitar(actual.folder.id, () =>
+                deleteFolder(actual.folder.id, rescatar),
+              );
+            }
           }}
         />
+      )}
+
+      {(carpetasOpt.error || buildsOpt.error) && (
+        <p
+          role="alert"
+          className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger"
+        >
+          {carpetasOpt.error ?? buildsOpt.error}
+        </p>
       )}
     </div>
   );
@@ -1081,14 +1157,14 @@ type Confirmacion =
 function DialogoBorrado({
   confirmacion,
   onCancel,
-  onDone,
+  onBorrar,
 }: {
   confirmacion: Confirmacion;
   onCancel: () => void;
-  onDone: () => void;
+  /** Cierra y saca la cosa de la pantalla; el borrado real viaja por atrás. */
+  onBorrar: (rescatar: boolean) => void;
 }) {
   const [texto, setTexto] = useState("");
-  const [pending, startTransition] = useTransition();
 
   const conContenido =
     confirmacion.tipo === "carpeta" &&
@@ -1098,17 +1174,6 @@ function DialogoBorrado({
     confirmacion.tipo === "carpeta" ? confirmacion.folder.name : confirmacion.build.name;
 
   const puede = !conContenido || texto.trim() === nombre;
-
-  function ejecutar(rescatar: boolean) {
-    startTransition(async () => {
-      if (confirmacion.tipo === "carpeta") {
-        await deleteFolder(confirmacion.folder.id, rescatar);
-      } else {
-        await deleteBuild(confirmacion.build.id);
-      }
-      onDone();
-    });
-  }
 
   return (
     <div
@@ -1180,8 +1245,7 @@ function DialogoBorrado({
           {conContenido && (
             <button
               type="button"
-              onClick={() => ejecutar(true)}
-              disabled={pending}
+              onClick={() => onBorrar(true)}
               className="h-10 rounded-lg border border-border px-4 text-sm hover:bg-surface-2"
             >
               Rescatar el contenido
@@ -1190,11 +1254,11 @@ function DialogoBorrado({
 
           <button
             type="button"
-            onClick={() => ejecutar(false)}
-            disabled={pending || !puede}
+            onClick={() => onBorrar(false)}
+            disabled={!puede}
             className="h-10 rounded-lg bg-danger px-4 text-sm font-medium text-white disabled:opacity-40"
           >
-            {pending ? "Borrando…" : conContenido ? "Borrar todo" : "Borrar"}
+            {conContenido ? "Borrar todo" : "Borrar"}
           </button>
         </div>
       </div>

@@ -3,7 +3,7 @@
 import { Copy, Lock, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import {
   createContent,
@@ -20,6 +20,7 @@ import {
 import { propsDeArrastre } from "@/components/arrastre";
 import { GrillaCarpetas, type FichaDeCarpeta } from "@/components/carpetas";
 import { MoverA } from "@/components/mover-a";
+import { idProvisional, useOptimista } from "@/components/optimista";
 import { colorSugerido, PALETA_CONTENIDOS } from "@/lib/color";
 import type { Content } from "@/lib/data/contents";
 import type { CompositionSummary } from "@/lib/data/compositions";
@@ -96,29 +97,26 @@ export function PartyMaker({
   contents: Content[];
   compositions: CompositionSummary[];
 }) {
-  const router = useRouter();
-  const [, startTransition] = useTransition();
   const [creando, setCreando] = useState(false);
   const [borrando, setBorrando] = useState<ABorrar | null>(null);
 
-  const [state, action, pending] = useActionState(createContent, EMPTY);
+  // Las carpetas y las composiciones se muestran con lo que acabás de hacer ya
+  // aplicado, sin esperar la vuelta del servidor.
+  const carpetasOptimistas = useOptimista<Content>(contents);
+  const compsOptimistas = useOptimista<CompositionSummary>(compositions);
 
-  function correr(fn: () => Promise<unknown>) {
-    startTransition(async () => {
-      await fn();
-      router.refresh();
-    });
-  }
+  const contenidosVisibles = carpetasOptimistas.lista;
+  const composicionesVisibles = compsOptimistas.lista;
 
   const porContenido = new Map<string, CompositionSummary[]>();
-  for (const comp of compositions) {
+  for (const comp of composicionesVisibles) {
     porContenido.set(comp.content_id, [
       ...(porContenido.get(comp.content_id) ?? []),
       comp,
     ]);
   }
 
-  const carpetas: FichaDeCarpeta[] = contents.map((content) => {
+  const carpetas: FichaDeCarpeta[] = contenidosVisibles.map((content) => {
     const suyas = porContenido.get(content.id) ?? [];
     return {
       id: content.id,
@@ -128,11 +126,17 @@ export function PartyMaker({
         suyas.length === 0
           ? "Sin composiciones"
           : `${suyas.length} composición${suyas.length === 1 ? "" : "es"}`,
-      onRenombrar: (nombre) => correr(() => renameContent(content.id, nombre)),
+      onRenombrar: (nombre) =>
+        carpetasOptimistas.editar(content.id, { name: nombre }, () =>
+          renameContent(content.id, nombre),
+        ),
       arrastre: {
         // Una carpeta acepta cualquier composición que hoy viva en otra.
         acepta: (dato) => dato.tipo === "composicion" && dato.origen !== content.id,
-        alSoltar: (dato) => correr(() => moveComposition(dato.id, content.id)),
+        alSoltar: (dato) =>
+          compsOptimistas.editar(dato.id, { content_id: content.id }, () =>
+            moveComposition(dato.id, content.id),
+          ),
       },
       panel: () => (
         <ContenidoAbierto
@@ -140,14 +144,20 @@ export function PartyMaker({
           contentName={content.name}
           gameSlug={gameSlug}
           compositions={suyas}
-          otrosContenidos={contents.filter((otro) => otro.id !== content.id)}
-          onMover={(compId, destino) => correr(() => moveComposition(compId, destino))}
+          otrosContenidos={contenidosVisibles.filter((otro) => otro.id !== content.id)}
+          onMover={(compId, destino) =>
+            compsOptimistas.editar(compId, { content_id: destino }, () =>
+              moveComposition(compId, destino),
+            )
+          }
           onDuplicar={(comp) =>
-            correr(() =>
-              duplicateComposition(comp.id, {
-                conBuilds: true,
-                nombre: `${comp.name} (duplicado)`,
-              }),
+            compsOptimistas.agregar(
+              { ...comp, id: idProvisional(), name: `${comp.name} (duplicado)` },
+              () =>
+                duplicateComposition(comp.id, {
+                  conBuilds: true,
+                  nombre: `${comp.name} (duplicado)`,
+                }),
             )
           }
         />
@@ -190,8 +200,27 @@ export function PartyMaker({
 
       {creando && (
         <form
-          action={action}
-          onSubmit={() => setCreando(false)}
+          onSubmit={(evento) => {
+            evento.preventDefault();
+            const datos = new FormData(evento.currentTarget);
+            const nombre = String(datos.get("name") ?? "").trim();
+            if (!nombre) return;
+            const color = String(datos.get("color") ?? colorSugerido(contenidosVisibles.length));
+
+            setCreando(false);
+            // La carpeta aparece en la grilla apenas apretás Crear. El
+            // identificador es provisional y se cae solo cuando llega el real.
+            carpetasOptimistas.agregar(
+              {
+                id: idProvisional(),
+                name: nombre,
+                icon: null,
+                color,
+                position: contenidosVisibles.length,
+              },
+              () => createContent(EMPTY, datos),
+            );
+          }}
           className="space-y-3 rounded-xl border border-accent/40 bg-accent/5 p-3"
         >
           <input type="hidden" name="gameId" value={gameId} />
@@ -211,10 +240,9 @@ export function PartyMaker({
             />
             <button
               type="submit"
-              disabled={pending}
-              className="h-11 rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover active:translate-y-px disabled:opacity-60"
+              className="h-11 rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover active:translate-y-px"
             >
-              {pending ? "Creando…" : "Crear"}
+              Crear
             </button>
             <button
               type="button"
@@ -225,17 +253,17 @@ export function PartyMaker({
             </button>
           </div>
 
-          <PaletaDeColores sugerido={colorSugerido(contents.length)} />
-
-          {state.error && (
-            <p role="alert" className="text-sm text-danger">
-              {state.error}
-            </p>
-          )}
+          <PaletaDeColores sugerido={colorSugerido(contenidosVisibles.length)} />
         </form>
       )}
 
-      {contents.length === 0 ? (
+      {carpetasOptimistas.error && (
+        <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
+          {carpetasOptimistas.error}
+        </p>
+      )}
+
+      {contenidosVisibles.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-10 text-center">
           <p className="font-medium">Todavía no tenés contenidos</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted">
@@ -248,7 +276,7 @@ export function PartyMaker({
           carpetas={carpetas}
           // La primera arranca abierta: una pantalla de carpetas todas
           // cerradas no muestra nada de lo que la persona vino a buscar.
-          inicialAbierta={contents[0]?.id ?? null}
+          inicialAbierta={contenidosVisibles[0]?.id ?? null}
           vacio={{
             titulo: "Elegí una carpeta",
             detalle:
@@ -262,6 +290,11 @@ export function PartyMaker({
           content={borrando.content}
           compositions={borrando.compositions}
           onCancel={() => setBorrando(null)}
+          onBorrar={() => {
+            const id = borrando.content.id;
+            setBorrando(null);
+            carpetasOptimistas.quitar(id, () => deleteContentWithCompositions(id));
+          }}
         />
       )}
     </div>
@@ -285,32 +318,20 @@ function DialogoBorrarContenido({
   content,
   compositions,
   onCancel,
+  onBorrar,
 }: {
   content: Content;
   compositions: CompositionSummary[];
   onCancel: () => void;
+  /** Cierra el diálogo y saca la carpeta de la grilla en el acto. El borrado
+      real viaja por atrás; si falla, el aviso aparece en la pantalla. */
+  onBorrar: () => void;
 }) {
-  const router = useRouter();
   const [texto, setTexto] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [pendiente, startTransition] = useTransition();
 
   const vacio = compositions.length === 0;
   const puede = vacio || texto.trim() === content.name;
   const compartidas = compositions.filter((comp) => comp.share_slug !== null).length;
-
-  function borrar() {
-    setError(null);
-    startTransition(async () => {
-      const resultado = await deleteContentWithCompositions(content.id);
-      if (resultado.error) {
-        setError(resultado.error);
-        return;
-      }
-      onCancel();
-      router.refresh();
-    });
-  }
 
   return (
     <div
@@ -397,12 +418,6 @@ function DialogoBorrarContenido({
           </>
         )}
 
-        {error && (
-          <p role="alert" className="mt-3 text-sm text-danger">
-            {error}
-          </p>
-        )}
-
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
@@ -413,15 +428,11 @@ function DialogoBorrarContenido({
           </button>
           <button
             type="button"
-            onClick={borrar}
-            disabled={!puede || pendiente}
+            onClick={onBorrar}
+            disabled={!puede}
             className="h-11 rounded-lg bg-danger px-4 text-sm font-medium text-white transition-opacity active:translate-y-px disabled:opacity-40"
           >
-            {pendiente
-              ? "Borrando…"
-              : vacio
-                ? "Borrar la carpeta"
-                : `Borrar todo (${compositions.length + 1})`}
+            {vacio ? "Borrar la carpeta" : `Borrar todo (${compositions.length + 1})`}
           </button>
         </div>
       </div>
