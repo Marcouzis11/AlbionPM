@@ -94,7 +94,7 @@ export function BuildEditor({ build, roles, usedColors, onClose, onSaved }: Prop
   return (
     <div className="fixed inset-0 z-30 flex justify-end bg-black/50" onClick={onClose}>
       <div
-        className="flex h-full w-full max-w-2xl flex-col overflow-y-auto border-l border-border bg-bg p-6"
+        className="flex h-full w-full max-w-2xl flex-col overflow-y-auto border-l border-border bg-bg px-6 pb-6 pt-9"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex shrink-0 items-end justify-between gap-3">
