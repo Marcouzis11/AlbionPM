@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 
-import { saveBuild } from "@/app/actions/builds";
 import { ColorPicker, type UsedColor } from "@/components/color-picker";
 import { Desplegable } from "@/components/desplegable";
 import { ItemPicker } from "@/components/item-picker";
-import type { Build, Role } from "@/lib/builds-shared";
-import { EQUIPMENT_SLOTS, type BuildItem, type EquipmentSlot } from "@/lib/items";
+import {
+  DISPOSICION_EQUIPO,
+  type Build,
+  type Role,
+} from "@/lib/builds-shared";
+import { type BuildItem, type EquipmentSlot } from "@/lib/items";
 
 /** Los nueve slots, con el nombre que usa la gente. */
 const SLOT_LABELS: Record<EquipmentSlot, string> = {
@@ -22,21 +25,6 @@ const SLOT_LABELS: Record<EquipmentSlot, string> = {
   mount: "Montura",
 };
 
-/**
- * Disposición de los slots, imitando el panel de personaje del juego.
- *
- * Tres columnas: a la izquierda el arma y la montura, en el medio la armadura
- * de arriba abajo, y a la derecha capa, off-hand y consumibles. La idea es que
- * quien viene del juego encuentre cada pieza donde ya la busca con el ojo, sin
- * tener que leer las etiquetas.
- */
-const DISPOSICION: (EquipmentSlot | null)[][] = [
-  [null, "head", "cape"],
-  ["mainhand", "armor", "offhand"],
-  ["mount", "shoes", "potion"],
-  [null, null, "food"],
-];
-
 type Props = {
   build: Build;
   roles: Role[];
@@ -49,7 +37,6 @@ export function BuildEditor({ build, roles, usedColors, onClose, onSaved }: Prop
   const [draft, setDraft] = useState<Build>(build);
   const [tagInput, setTagInput] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
   const [showColor, setShowColor] = useState(false);
 
   useEffect(() => setDraft(build), [build]);
@@ -73,23 +60,28 @@ export function BuildEditor({ build, roles, usedColors, onClose, onSaved }: Prop
     });
   }
 
+  /**
+   * Guarda y cierra, sin esperar al servidor.
+   *
+   * Antes el editor se quedaba abierto con «Guardando…» hasta que volvía la
+   * respuesta, y solo cerraba si salía bien. Cualquier tropiezo —una respuesta
+   * que no llega, una promesa rechazada— te dejaba encerrado en un cartel del
+   * que no se sale, con el cambio ya escrito en la base. De ahí que recargar
+   * «arreglara» el problema: el guardado había funcionado, lo que se colgaba
+   * era la pantalla.
+   *
+   * Lo único que se comprueba acá es lo que puede saberse sin preguntar. El
+   * resto de los errores los muestra la biblioteca, que es la que sigue en pie
+   * cuando esto ya cerró.
+   */
   function guardar() {
+    if (!draft.name.trim()) {
+      setError("La build necesita un nombre.");
+      return;
+    }
     setError(null);
-    startTransition(async () => {
-      const result = await saveBuild(draft.id, {
-        name: draft.name,
-        role_id: draft.role_id,
-        color: draft.color,
-        tags: draft.tags,
-        items: draft.items,
-        notes: draft.notes,
-      });
-      if (result.error) setError(result.error);
-      else {
-        onSaved(draft);
-        onClose();
-      }
-    });
+    onSaved(draft);
+    onClose();
   }
 
   function addTag() {
@@ -173,7 +165,7 @@ export function BuildEditor({ build, roles, usedColors, onClose, onSaved }: Prop
             Equipo
           </h3>
           <div className="mx-auto grid max-w-md grid-cols-3 gap-3">
-            {DISPOSICION.flat().map((slot, indice) =>
+            {DISPOSICION_EQUIPO.flat().map((slot, indice) =>
               slot === null ? (
                 // Hueco de la grilla: mantiene la forma del panel del juego.
                 <div key={`vacio-${indice}`} aria-hidden />
@@ -259,10 +251,9 @@ export function BuildEditor({ build, roles, usedColors, onClose, onSaved }: Prop
           <button
             type="button"
             onClick={guardar}
-            disabled={pending}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover active:translate-y-px disabled:opacity-60"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover active:translate-y-px"
           >
-            {pending ? "Guardando…" : "Guardar"}
+            Guardar
           </button>
         </div>
       </div>

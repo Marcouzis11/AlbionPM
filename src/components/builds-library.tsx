@@ -22,6 +22,7 @@ import {
   moveFolder,
   renameFolder,
   reorderBuilds,
+  saveBuild,
   setFolderColor,
 } from "@/app/actions/builds";
 import {
@@ -516,10 +517,20 @@ export function BuildsLibrary({
           roles={roles}
           usedColors={usedColors}
           onClose={() => setEditing(null)}
-          // El editor ya guardó cuando avisa; lo que falta es que la tarjeta
-          // muestre lo nuevo sin esperar a que vuelva la pantalla entera.
+          // El editor cierra en el acto y el guardado viaja por atrás, igual
+          // que todo lo demás. Si el servidor lo rechaza, la tarjeta vuelve a
+          // como estaba y el aviso aparece abajo.
           onSaved={(guardada) =>
-            buildsOpt.editar(guardada.id, guardada, async () => undefined)
+            buildsOpt.editar(guardada.id, guardada, () =>
+              saveBuild(guardada.id, {
+                name: guardada.name,
+                role_id: guardada.role_id,
+                color: guardada.color,
+                tags: guardada.tags,
+                items: guardada.items,
+                notes: guardada.notes,
+              }),
+            )
           }
         />
       )}
