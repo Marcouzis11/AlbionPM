@@ -13,6 +13,7 @@ import {
 } from "@/app/actions/contents";
 import {
   createComposition,
+  deleteComposition,
   duplicateComposition,
   moveComposition,
   type Plantilla,
@@ -99,6 +100,7 @@ export function PartyMaker({
 }) {
   const [creando, setCreando] = useState(false);
   const [borrando, setBorrando] = useState<ABorrar | null>(null);
+  const [borrandoComp, setBorrandoComp] = useState<CompositionSummary | null>(null);
 
   // Las carpetas y las composiciones se muestran con lo que acabás de hacer ya
   // aplicado, sin esperar la vuelta del servidor.
@@ -150,6 +152,7 @@ export function PartyMaker({
               moveComposition(compId, destino),
             )
           }
+          onBorrarComp={setBorrandoComp}
           onDuplicar={(comp) =>
             compsOptimistas.agregar(
               { ...comp, id: idProvisional(), name: `${comp.name} (duplicado)` },
@@ -285,6 +288,18 @@ export function PartyMaker({
         />
       )}
 
+      {borrandoComp && (
+        <DialogoBorrarComposicion
+          composition={borrandoComp}
+          onCancel={() => setBorrandoComp(null)}
+          onBorrar={() => {
+            const id = borrandoComp.id;
+            setBorrandoComp(null);
+            compsOptimistas.quitar(id, () => deleteComposition(id));
+          }}
+        />
+      )}
+
       {borrando && (
         <DialogoBorrarContenido
           content={borrando.content}
@@ -302,6 +317,83 @@ export function PartyMaker({
 }
 
 type ABorrar = { content: Content; compositions: CompositionSummary[] };
+
+/**
+ * Borrar una composición.
+ *
+ * No pide escribir el nombre, a diferencia del borrado de una carpeta entera:
+ * acá se pierde una sola cosa y su nombre está a la vista en el título. Pedir
+ * que lo escribas para una comp sería una traba que se aprende a saltear, y una
+ * traba que se saltea en automático no protege de nada.
+ *
+ * Lo que sí dice es qué se lleva puesto, porque no todo se deduce de la lista.
+ */
+function DialogoBorrarComposicion({
+  composition,
+  onCancel,
+  onBorrar,
+}: {
+  composition: CompositionSummary;
+  onCancel: () => void;
+  onBorrar: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="titulo-borrar-comp"
+    >
+      <div className="w-full max-w-md rounded-xl border border-border bg-surface p-5">
+        <h2 id="titulo-borrar-comp" className="text-lg font-semibold">
+          Borrar «{composition.name}»
+        </h2>
+
+        {composition.description && (
+          <p className="mt-1 text-sm text-muted">{composition.description}</p>
+        )}
+
+        <div className="mt-4 space-y-1.5 text-sm">
+          <p>Se van los grupos, los lugares y todos los nombres anotados.</p>
+          <p className="text-success">
+            Tus builds no se tocan. Siguen enteras en la biblioteca.
+          </p>
+          {composition.share_slug && (
+            <p className="text-muted">
+              El link compartido deja de funcionar: quien lo abra no va a ver nada.
+            </p>
+          )}
+          {composition.is_archived && (
+            <p className="text-muted">
+              Está archivada, así que también sale del historial.
+            </p>
+          )}
+          <p className="text-muted">
+            Esto no se puede deshacer y no hay copias de seguridad.
+          </p>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="h-11 rounded-lg border border-border px-4 text-sm transition-colors hover:bg-surface-2"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            autoFocus
+            onClick={onBorrar}
+            className="h-11 rounded-lg bg-danger px-4 text-sm font-medium text-white active:translate-y-px"
+          >
+            Borrar la composición
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Borrar un contenido con todo lo que tiene adentro.
@@ -489,6 +581,7 @@ function ContenidoAbierto({
   compositions,
   otrosContenidos,
   onMover,
+  onBorrarComp,
   onDuplicar,
 }: {
   contentId: string;
@@ -497,6 +590,7 @@ function ContenidoAbierto({
   compositions: CompositionSummary[];
   otrosContenidos: Content[];
   onMover: (composicionId: string, contenidoDestino: string) => void;
+  onBorrarComp: (comp: CompositionSummary) => void;
   onDuplicar: (comp: CompositionSummary) => void;
 }) {
   const [creando, setCreando] = useState(false);
@@ -549,6 +643,16 @@ function ContenidoAbierto({
               className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-text"
             >
               <Copy size={14} aria-hidden />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onBorrarComp(comp)}
+              aria-label={`Borrar ${comp.name}`}
+              title="Borrar esta composición"
+              className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-danger"
+            >
+              <Trash2 size={14} aria-hidden />
             </button>
 
             {otrosContenidos.length > 0 && (
