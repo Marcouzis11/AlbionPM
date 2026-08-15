@@ -10,7 +10,6 @@ import {
   DISPOSICION_EQUIPO,
   type Build,
   type BuildFolder,
-  type Role,
 } from "@/lib/builds-shared";
 import { textoSobre } from "@/lib/color";
 
@@ -26,24 +25,10 @@ import { textoSobre } from "@/lib/color";
  * reconocerla sin leer.
  */
 
-/** Siglas de los casilleros vacíos, iguales a las de la biblioteca. */
-const SIGLAS: Record<string, string> = {
-  mainhand: "Arma",
-  offhand: "Off",
-  head: "Cab",
-  armor: "Pech",
-  shoes: "Bot",
-  cape: "Capa",
-  food: "Com",
-  potion: "Poc",
-  mount: "Mont",
-};
-
 export function SelectorDeBuild({
   value,
   builds,
   folders,
-  roles,
   onChange,
   disabled = false,
   className = "",
@@ -51,14 +36,10 @@ export function SelectorDeBuild({
   value: string | null;
   builds: Build[];
   folders: BuildFolder[];
-  roles: Role[];
   onChange: (buildId: string | null) => void;
   disabled?: boolean;
   className?: string;
 }) {
-  const rolDe = (build: Build) =>
-    build.role_id ? roles.find((r) => r.id === build.role_id)?.name : undefined;
-
   const [abierto, setAbierto] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [plegadas, setPlegadas] = useState<Set<string>>(new Set());
@@ -123,7 +104,7 @@ export function SelectorDeBuild({
 
         {propias.length > 0 && (
           <div
-            className="grid grid-cols-2 gap-1.5 py-1"
+            className="grid grid-cols-3 gap-1.5 py-1"
             style={{ marginLeft: nivel * 14 + 6 }}
           >
             {propias.map((build) => (
@@ -131,7 +112,6 @@ export function SelectorDeBuild({
                 key={build.id}
                 build={build}
                 color={colorEfectivo(build, folders)}
-                rol={rolDe(build)}
                 elegida={build.id === value}
                 onElegir={() => elegir(build.id)}
               />
@@ -173,7 +153,7 @@ export function SelectorDeBuild({
         <Flotante
           ancla={boton}
           onCerrar={() => setAbierto(false)}
-          className="flex max-h-[26rem] w-80 flex-col p-2"
+          className="flex max-h-[26rem] w-96 flex-col p-2"
         >
           <div className="relative shrink-0">
             <Search
@@ -208,14 +188,13 @@ export function SelectorDeBuild({
                   Ninguna build se llama así.
                 </p>
               ) : (
-                <div className="grid grid-cols-2 gap-1.5 py-1">
+                <div className="grid grid-cols-3 gap-1.5 py-1">
                   {resultados.map((build) => (
                     <Tarjeta
                       key={build.id}
                       build={build}
                       color={colorEfectivo(build, folders)}
-                      rol={rolDe(build)}
-                      elegida={build.id === value}
+                            elegida={build.id === value}
                       onElegir={() => elegir(build.id)}
                     />
                   ))}
@@ -232,36 +211,34 @@ export function SelectorDeBuild({
 }
 
 /**
- * Una build dentro del menú, con la misma forma que en la biblioteca.
+ * Una build dentro del menú, con la misma forma que en la biblioteca pero en
+ * chico: el equipo y el nombre, nada más.
  *
- * Sin descripción: acá estás eligiendo, no leyendo. Alcanza con el equipo para
- * reconocerla, el nombre para confirmarla y el rol para no confundir dos que se
- * parecen. La nota entera haría el menú tres veces más largo justo cuando lo
- * que querés es cerrarlo rápido.
+ * Sin rol y sin descripción. Acá estás eligiendo, no leyendo: el equipo alcanza
+ * para reconocerla y el nombre para confirmarla. Cada línea de texto de más
+ * agranda la tarjeta y hace el menú más largo, justo cuando lo que querés es
+ * cerrarlo rápido.
  */
 function Tarjeta({
   build,
   color,
-  rol,
   elegida,
   onElegir,
 }: {
   build: Build;
   color: string | null;
-  rol: string | undefined;
   elegida: boolean;
   onElegir: () => void;
 }) {
-  const estilo = color
-    ? { background: color, color: textoSobre(color) }
-    : undefined;
+  const estilo = color ? { background: color, color: textoSobre(color) } : undefined;
 
   return (
     <button
       type="button"
+      title={build.name}
       onClick={onElegir}
       style={estilo}
-      className={`flex flex-col gap-1 rounded-lg border p-1.5 text-left ${
+      className={`flex flex-col gap-0.5 rounded-lg border p-1 text-left ${
         color ? "border-current/25" : "border-border bg-surface"
       } ${elegida ? "ring-2 ring-accent" : ""}`}
     >
@@ -279,19 +256,15 @@ function Tarjeta({
           ) : (
             <span
               key={slot}
-              className="m-px flex aspect-square items-center justify-center rounded-sm border border-dashed border-current/30 text-[7px] font-semibold leading-none opacity-70"
-            >
-              {SIGLAS[slot]}
-            </span>
+              aria-hidden
+              className="m-px aspect-square rounded-sm border border-dashed border-current/25"
+            />
           ),
         )}
       </span>
 
-      <span className="min-w-0">
-        <span className="block truncate text-xs font-medium">{build.name}</span>
-        <span className={`block truncate text-[10px] ${color ? "opacity-80" : "text-muted"}`}>
-          {rol ?? "Sin rol"}
-        </span>
+      <span className="block truncate text-[11px] font-medium leading-tight">
+        {build.name}
       </span>
     </button>
   );
