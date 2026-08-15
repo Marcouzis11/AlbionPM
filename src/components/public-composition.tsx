@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ItemIcon } from "@/components/item-icon";
 import { DISPOSICION_EQUIPO } from "@/lib/builds-shared";
-import { type EquipmentSlot } from "@/lib/items";
+import { EQUIPMENT_SLOTS, type EquipmentSlot } from "@/lib/items";
 import {
   buscarJugador,
   formatearEvento,
@@ -404,10 +404,21 @@ function GrupoCompleto({
               )}
             </span>
 
-            <span className="flex shrink-0">
-              {(["mainhand", "offhand", "head", "armor", "shoes"] as const).map((s) =>
-                slot.build?.items[s] ? (
-                  <ItemIcon key={s} item={slot.build.items[s]} size={64} className="size-8" />
+            {/* TODAS las piezas, no solo las cinco principales. Un jugador que
+                abre esto quiere saber qué se pone, y la capa, la comida, la
+                poción y la montura son parte de eso: son justo las que uno se
+                olvida de llevar. Se muestran solo las que la build tiene, así
+                una build de cinco piezas no arrastra cuatro huecos. */}
+            <span className="flex shrink-0 flex-wrap">
+              {EQUIPMENT_SLOTS.map((pieza) =>
+                slot.build?.items[pieza] ? (
+                  <ItemIcon
+                    key={pieza}
+                    item={slot.build.items[pieza]}
+                    name={SLOT_LABELS[pieza]}
+                    size={64}
+                    className="size-8"
+                  />
                 ) : null,
               )}
             </span>
