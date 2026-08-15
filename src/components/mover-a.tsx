@@ -1,7 +1,9 @@
 "use client";
 
 import { FolderInput } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
+
+import { Flotante } from "@/components/flotante";
 
 /**
  * Mover una cosa a otra carpeta.
@@ -35,12 +37,14 @@ export function MoverA({
   onMover: (destinoId: string) => void;
 }) {
   const [abierto, setAbierto] = useState(false);
+  const boton = useRef<HTMLButtonElement>(null);
 
   if (destinos.length === 0) return null;
 
   return (
-    <span className="relative flex shrink-0 items-center">
+    <span className="flex shrink-0 items-center">
       <button
+        ref={boton}
         type="button"
         onClick={() => setAbierto((v) => !v)}
         aria-expanded={abierto}
@@ -52,38 +56,34 @@ export function MoverA({
       </button>
 
       {abierto && (
-        <>
-          {/* Capa para cerrar tocando afuera, sin robarle el foco al teclado. */}
-          <span
-            className="fixed inset-0 z-30"
-            onClick={() => setAbierto(false)}
-            aria-hidden
-          />
-
-          <div className="absolute right-0 top-full z-40 mt-1 max-h-64 w-60 overflow-y-auto rounded-xl border border-border bg-surface p-1 shadow-xl">
-            <p className="px-2 py-1.5 text-[11px] font-medium text-muted">Mover a</p>
-            {destinos.map((destino) => (
-              <button
-                key={destino.id}
-                type="button"
-                onClick={() => {
-                  setAbierto(false);
-                  onMover(destino.id);
-                }}
-                className="flex min-h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-sm transition-colors hover:bg-surface-2"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate">{destino.nombre}</span>
-                  {destino.ruta && (
-                    <span className="block truncate text-[11px] text-muted">
-                      {destino.ruta}
-                    </span>
-                  )}
-                </span>
-              </button>
-            ))}
-          </div>
-        </>
+        <Flotante
+          ancla={boton}
+          onCerrar={() => setAbierto(false)}
+          alineacion="derecha"
+          className="max-h-64 w-60 overflow-y-auto p-1"
+        >
+          <p className="px-2 py-1.5 text-[11px] font-medium text-muted">Mover a</p>
+          {destinos.map((destino) => (
+            <button
+              key={destino.id}
+              type="button"
+              onClick={() => {
+                setAbierto(false);
+                onMover(destino.id);
+              }}
+              className="flex min-h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-sm transition-colors hover:bg-surface-2"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">{destino.nombre}</span>
+                {destino.ruta && (
+                  <span className="block truncate text-[11px] text-muted">
+                    {destino.ruta}
+                  </span>
+                )}
+              </span>
+            </button>
+          ))}
+        </Flotante>
       )}
     </span>
   );

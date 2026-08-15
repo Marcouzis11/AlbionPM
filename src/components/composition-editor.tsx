@@ -27,11 +27,14 @@ import {
   updateSlot,
 } from "@/app/actions/compositions";
 import {
+  loQueSeArrastra,
   propsDeArrastre,
+  useArrastrado,
   useZonaDeSoltar,
 } from "@/components/arrastre";
 import { BuildPeek } from "@/components/build-peek";
 import { Desplegable } from "@/components/desplegable";
+import { SelectorDeBuild } from "@/components/selector-de-build";
 import { CompHeader } from "@/components/comp-header";
 import { colorEfectivo, type Build, type BuildFolder, type Role } from "@/lib/builds-shared";
 import { textoSobre } from "@/lib/color";
@@ -68,6 +71,31 @@ export function CompositionEditor({
   const [vaciando, setVaciando] = useState(false);
 
   const buildById = useMemo(() => new Map(builds.map((b) => [b.id, b])), [builds]);
+
+  /* --- Vista previa del intercambio ----------------------------------------
+     Arrastrar una fila sobre otra las intercambia. Mientras el cursor está
+     encima, las dos filas ya se muestran como van a quedar: no hay que
+     imaginar el resultado, se ve. Lo que se intercambia es solo lo que se
+     MUESTRA; los identificadores y las acciones siguen siendo los de cada
+     fila real, así soltar en el lugar equivocado no puede escribir en la
+     persona equivocada. */
+  const arrastrado = useArrastrado();
+  const [sobre, setSobre] = useState<string | null>(null);
+
+  const slotsPorId = useMemo(
+    () =>
+      new Map(
+        composition.groups.flatMap((g) => g.slots.map((s) => [s.id, s] as const)),
+      ),
+    [composition],
+  );
+
+  function contenidoDe(slot: CompSlot): CompSlot {
+    if (arrastrado?.tipo !== "lugar" || !sobre || arrastrado.id === sobre) return slot;
+    if (slot.id === arrastrado.id) return slotsPorId.get(sobre) ?? slot;
+    if (slot.id === sobre) return slotsPorId.get(arrastrado.id) ?? slot;
+    return slot;
+  }
 
   const confirmados = contarConfirmados(composition);
   const lugares = contarLugares(composition);
@@ -143,6 +171,9 @@ export function CompositionEditor({
               folders={folders}
               bloqueado={bloqueado}
               onRun={run}
+              contenidoDe={contenidoDe}
+              onSobre={setSobre}
+              enVuelo={arrastrado?.tipo === "lugar" ? arrastrado.id : null}
               onAdelantar={
                 anterior && (() => run(() => swapGroups(group, anterior)))
               }
@@ -188,6 +219,9 @@ function TarjetaGrupo({
   folders,
   bloqueado,
   onRun,
+  contenidoDe,
+  onSobre,
+  enVuelo,
   onAdelantar,
   onAtrasar,
   onSoltarGrupo,
@@ -199,6 +233,11 @@ function TarjetaGrupo({
   folders: BuildFolder[];
   bloqueado: boolean;
   onRun: (fn: () => Promise<unknown>) => void;
+  /** Qué mostrar en cada fila mientras hay un arrastre en curso. */
+  contenidoDe: (slot: CompSlot) => CompSlot;
+  onSobre: (slotId: string | null) => void;
+  /** El lugar que se está arrastrando, para mostrarlo apagado. */
+  enVuelo: string | null;
   /** `undefined` cuando ya es el primero o el último. */
   onAdelantar: (() => void) | undefined;
   onAtrasar: (() => void) | undefined;
@@ -298,7 +337,8 @@ function TarjetaGrupo({
 
       <ul className="divide-y divide-border/70">
         {group.slots.map((slot) => {
-          const build = slot.build_id ? buildById.get(slot.build_id) : undefined;
+          const visto = contenidoDe(slot);
+          const build = visto.build_id ? buildById.get(visto.build_id) : undefined;
           // El mismo color, sin mezclar, que el de la tarjeta en la biblioteca:
           // si acá se atenuara, la misma build parecería dos builds distintas.
           const color = build ? colorEfectivo(build, folders) : null;
@@ -317,6 +357,10 @@ function TarjetaGrupo({
             <SlotFila
               key={slot.id}
               slot={slot}
+              visto={visto}
+              folders={folders}
+              apagada={enVuelo === slot.id}
+              onSobre={onSobre}
               grupoId={group.id}
               build={build}
               estilo={estilo}
@@ -355,6 +399,10 @@ function TarjetaGrupo({
  */
 function SlotFila({
   slot,
+  visto,
+  folders,
+  apagada,
+  onSobre,
   grupoId,
   build,
   estilo,
@@ -366,6 +414,11 @@ function SlotFila({
   onRun,
 }: {
   slot: CompSlot;
+  /** Lo que se muestra: durante un arrastre puede ser el de otra fila. */
+  visto: CompSlot;
+  folders: BuildFolder[];
+  apagada: boolean;
+  onSobre: (slotId: string | null) => void;
   grupoId: string;
   build: Build | undefined;
   estilo: React.CSSProperties | undefined;
@@ -378,16 +431,24 @@ function SlotFila({
 }) {
   const zona = useZonaDeSoltar(
     (dato) => dato.tipo === "lugar" && dato.id !== slot.id,
-    (dato) => onRun(() => swapSlots(dato.id, slot.id)),
+    (dato) => {
+      onSobre(null);
+      onRun(() => swapSlots(dato.id, slot.id));
+    },
   );
 
   return (
     <li
       {...zona.props}
+      onDragEnter={(evento) => {
+        zona.props.onDragEnter();
+        if (loQueSeArrastra()?.tipo === "lugar") onSobre(slot.id);
+        evento.preventDefault();
+      }}
       style={estilo}
-      className={`flex items-center gap-1.5 px-1 py-1 ${
-        zona.encima ? "ring-2 ring-inset ring-accent" : ""
-      }`}
+      className={`flex items-center gap-1.5 px-1 py-1 transition-opacity ${
+        apagada ? "opacity-40" : ""
+      } ${zona.encima ? "ring-2 ring-inset ring-accent" : ""}`}
     >
       {!bloqueado && (
         <span
@@ -434,18 +495,17 @@ function SlotFila({
 
       <BuildPeek build={build} />
 
-      <Desplegable
-        value={slot.build_id ?? ""}
-        opciones={builds.map((b) => ({ value: b.id, label: b.name }))}
-        onChange={(v) => onRun(() => updateSlot(slot.id, { build_id: v || null }))}
-        etiqueta="Build"
-        vacio="Build…"
+      <SelectorDeBuild
+        value={visto.build_id}
+        builds={builds}
+        folders={folders}
+        onChange={(id) => onRun(() => updateSlot(slot.id, { build_id: id }))}
         disabled={bloqueado}
-        className="h-8 w-24 shrink-0 sm:w-32"
+        className="h-8 w-24 shrink-0 sm:w-36"
       />
 
       <Desplegable
-        value={slot.role_id ?? ""}
+        value={visto.role_id ?? ""}
         opciones={roles.map((r) => ({ value: r.id, label: r.name }))}
         onChange={(v) => onRun(() => updateSlot(slot.id, { role_id: v || null }))}
         etiqueta="Rol"
@@ -455,7 +515,11 @@ function SlotFila({
       />
 
       <input
-        defaultValue={slot.player_name ?? ""}
+        // La `key` fuerza a redibujarlo cuando la vista previa cambia lo que
+        // tiene que mostrar: un campo no controlado se queda con su valor
+        // inicial y mostraría el nombre de la otra persona.
+        key={visto.id + (visto.player_name ?? "")}
+        defaultValue={visto.player_name ?? ""}
         disabled={bloqueado}
         placeholder="Nombre"
         aria-label="Nombre del jugador"

@@ -11,7 +11,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Fragment, useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useRef, useState, useTransition } from "react";
 
 import {
   countBuildUsage,
@@ -27,11 +27,13 @@ import {
 } from "@/app/actions/builds";
 import {
   propsDeArrastre,
+  useArrastrado,
   useZonaDeSoltar,
   type Arrastrado,
 } from "@/components/arrastre";
 import { BuildEditor } from "@/components/build-editor";
 import { Desplegable } from "@/components/desplegable";
+import { Flotante } from "@/components/flotante";
 import { ColorPicker, type UsedColor } from "@/components/color-picker";
 import { ItemIcon } from "@/components/item-icon";
 import { MoverA, type Destino } from "@/components/mover-a";
@@ -264,28 +266,25 @@ export function BuildsLibrary({
 
   function grillaDeBuilds(propias: Build[], conCarpeta: boolean) {
     return (
-      <div className="aparece-escalonado grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {propias.map((build) => (
-          <TarjetaBuild
-            key={build.id}
-            build={build}
-            color={colorEfectivo(build, folders)}
-            rolNombre={build.role_id ? roleById.get(build.role_id)?.name : undefined}
-            carpetaNombre={
-              conCarpeta && build.folder_id
-                ? folderById.get(build.folder_id)?.name
-                : undefined
-            }
-            destinos={destinos(build.folder_id)}
-            onMover={(destino) =>
-              correr(() => moveBuild(build.id, destino === RAIZ ? null : destino))
-            }
-            onSoltarBuild={conCarpeta ? undefined : (id) => soltarSobreBuild(id, build)}
-            onEditar={() => setEditing(build)}
-            onBorrar={() => pedirBorrarBuild(build)}
-          />
-        ))}
-      </div>
+      <GrillaDeBuilds
+        propias={propias}
+        carpeta={conCarpeta ? undefined : seleccionada}
+        colorDe={(build) => colorEfectivo(build, folders)}
+        rolDe={(build) => (build.role_id ? roleById.get(build.role_id)?.name : undefined)}
+        carpetaDe={(build) =>
+          conCarpeta && build.folder_id ? folderById.get(build.folder_id)?.name : undefined
+        }
+        destinosDe={(build) => destinos(build.folder_id)}
+        onMoverA={(buildId, destino) =>
+          correr(() => moveBuild(buildId, destino === RAIZ ? null : destino))
+        }
+        onReordenar={(orden) =>
+          correr(() => reorderBuilds(orden.map((b) => ({ id: b.id, position: b.position }))))
+        }
+        onTraer={(buildId, carpeta) => correr(() => moveBuild(buildId, carpeta))}
+        onEditar={setEditing}
+        onBorrar={pedirBorrarBuild}
+      />
     );
   }
 
@@ -496,6 +495,108 @@ export function BuildsLibrary({
           }}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * La grilla de tarjetas de una carpeta, con vista previa del reordenamiento.
+ *
+ * Mientras arrastrás, las tarjetas se corren de lugar para mostrar dónde va a
+ * caer la que llevás, y la que llevás se ve apagada. Un simple resaltado del
+ * destino no dice lo mismo: te obliga a imaginar el resultado en vez de verlo,
+ * y con veinte builds imaginarlo cuesta.
+ *
+ * La zona para soltar es la grilla entera y no cada tarjeta. Así resuelve los
+ * dos casos con el mismo gesto: si la build ya vivía acá es reordenar, y si
+ * viene de otra carpeta es traerla.
+ */
+function GrillaDeBuilds({
+  propias,
+  carpeta,
+  colorDe,
+  rolDe,
+  carpetaDe,
+  destinosDe,
+  onMoverA,
+  onReordenar,
+  onTraer,
+  onEditar,
+  onBorrar,
+}: {
+  propias: Build[];
+  /** `undefined` en los resultados de búsqueda: ahí no hay orden que tocar. */
+  carpeta: string | null | undefined;
+  colorDe: (build: Build) => string | null;
+  rolDe: (build: Build) => string | undefined;
+  carpetaDe: (build: Build) => string | undefined;
+  destinosDe: (build: Build) => Destino[];
+  onMoverA: (buildId: string, destino: string) => void;
+  onReordenar: (orden: Build[]) => void;
+  onTraer: (buildId: string, carpeta: string | null) => void;
+  onEditar: (build: Build) => void;
+  onBorrar: (build: Build) => void;
+}) {
+  const arrastrado = useArrastrado();
+  const [sobre, setSobre] = useState<string | null>(null);
+
+  const ordenable = carpeta !== undefined;
+  const suya =
+    ordenable && arrastrado?.tipo === "build"
+      ? propias.find((b) => b.id === arrastrado.id)
+      : undefined;
+
+  /** El orden que quedaría si soltaras ahora. */
+  const previsualizado = useMemo(() => {
+    if (!suya || !sobre || sobre === suya.id) return propias;
+    const resto = propias.filter((b) => b.id !== suya.id);
+    const donde = resto.findIndex((b) => b.id === sobre);
+    if (donde < 0) return propias;
+    resto.splice(donde, 0, suya);
+    return resto;
+  }, [propias, suya, sobre]);
+
+  function soltar() {
+    const dato = arrastrado;
+    setSobre(null);
+    if (!ordenable || dato?.tipo !== "build") return;
+
+    // De otra carpeta: se trae. De esta: se reordena con lo que ya se ve.
+    if (!propias.some((b) => b.id === dato.id)) onTraer(dato.id, carpeta);
+    else if (previsualizado !== propias) onReordenar(previsualizado);
+  }
+
+  return (
+    <div
+      onDragOver={(evento) => {
+        if (ordenable && arrastrado?.tipo === "build") evento.preventDefault();
+      }}
+      onDrop={(evento) => {
+        evento.preventDefault();
+        soltar();
+      }}
+      onDragLeave={(evento) => {
+        // Solo cuando el cursor sale de la grilla entera, no al cruzar de una
+        // tarjeta a la de al lado.
+        if (!evento.currentTarget.contains(evento.relatedTarget as Node)) setSobre(null);
+      }}
+      className="aparece-escalonado grid gap-3 md:grid-cols-2 xl:grid-cols-3"
+    >
+      {previsualizado.map((build) => (
+        <TarjetaBuild
+          key={build.id}
+          build={build}
+          color={colorDe(build)}
+          rolNombre={rolDe(build)}
+          carpetaNombre={carpetaDe(build)}
+          destinos={destinosDe(build)}
+          fantasma={suya?.id === build.id}
+          onSobre={() => ordenable && setSobre(build.id)}
+          onMover={(destino) => onMoverA(build.id, destino)}
+          onEditar={() => onEditar(build)}
+          onBorrar={() => onBorrar(build)}
+        />
+      ))}
     </div>
   );
 }
@@ -725,10 +826,12 @@ function ColorDeCarpeta({
   onElegir: (color: string | null) => void;
 }) {
   const [abierto, setAbierto] = useState(false);
+  const boton = useRef<HTMLButtonElement>(null);
 
   return (
-    <span className="relative flex shrink-0 items-center">
+    <span className="flex shrink-0 items-center">
       <button
+        ref={boton}
         type="button"
         onClick={() => setAbierto((v) => !v)}
         aria-expanded={abierto}
@@ -745,37 +848,24 @@ function ColorDeCarpeta({
       </button>
 
       {abierto && (
-        <>
-          <span
-            className="fixed inset-0 z-30"
-            onClick={() => setAbierto(false)}
-            aria-hidden
-          />
-          <div className="absolute right-0 top-full z-40 mt-1 w-72 rounded-xl border border-border bg-surface p-3 shadow-xl">
-            <p className="pb-2 text-[11px] font-medium text-muted">
-              Color de la carpeta
-            </p>
-            {/* El mismo selector que dentro de una build: si la carpeta pinta
-                sus builds, tiene que poder llegar al mismo color exacto. */}
-            <ColorPicker
-              value={color}
-              onChange={(nuevo) => onElegir(nuevo)}
-              used={usedColors}
-            />
-            {color && (
-              <button
-                type="button"
-                onClick={() => {
-                  setAbierto(false);
-                  onElegir(null);
-                }}
-                className="mt-2 h-8 w-full rounded-lg border border-border text-xs text-muted transition-colors hover:bg-surface-2 hover:text-text"
-              >
-                Sacarle el color
-              </button>
-            )}
-          </div>
-        </>
+        <Flotante ancla={boton} onCerrar={() => setAbierto(false)} alineacion="derecha" className="w-72 p-3">
+          <p className="pb-2 text-[11px] font-medium text-muted">Color de la carpeta</p>
+          {/* El mismo selector que dentro de una build: si la carpeta pinta sus
+              builds, tiene que poder llegar al mismo color exacto. */}
+          <ColorPicker value={color} onChange={(nuevo) => onElegir(nuevo)} used={usedColors} />
+          {color && (
+            <button
+              type="button"
+              onClick={() => {
+                setAbierto(false);
+                onElegir(null);
+              }}
+              className="mt-2 h-8 w-full rounded-lg border border-border text-xs text-muted transition-colors hover:bg-surface-2 hover:text-text"
+            >
+              Sacarle el color
+            </button>
+          )}
+        </Flotante>
       )}
     </span>
   );
@@ -794,8 +884,9 @@ function TarjetaBuild({
   rolNombre,
   carpetaNombre,
   destinos,
+  fantasma,
+  onSobre,
   onMover,
-  onSoltarBuild,
   onEditar,
   onBorrar,
 }: {
@@ -805,17 +896,13 @@ function TarjetaBuild({
   rolNombre: string | undefined;
   carpetaNombre: string | undefined;
   destinos: Destino[];
+  /** Es la que estás arrastrando: se muestra apagada en su lugar previsto. */
+  fantasma: boolean;
+  onSobre: () => void;
   onMover: (destinoId: string) => void;
-  /** Ausente en los resultados de búsqueda: ahí no hay una carpeta que ordenar. */
-  onSoltarBuild?: (buildId: string) => void;
   onEditar: () => void;
   onBorrar: () => void;
 }) {
-  const zona = useZonaDeSoltar(
-    (dato) => Boolean(onSoltarBuild) && dato.tipo === "build" && dato.id !== build.id,
-    (dato) => onSoltarBuild?.(dato.id),
-  );
-
   const nota =
     build.notes && build.notes.length > LIMITE_NOTA
       ? `${build.notes.slice(0, LIMITE_NOTA).trimEnd()}…`
@@ -830,12 +917,13 @@ function TarjetaBuild({
 
   return (
     <div
-      {...zona.props}
+      onDragEnter={onSobre}
+      onDragOver={onSobre}
       {...propsDeArrastre({ tipo: "build", id: build.id, origen: build.folder_id })}
       style={estilo}
-      className={`flex cursor-grab flex-col gap-2 rounded-xl border p-3 transition-shadow active:cursor-grabbing ${
+      className={`flex cursor-grab flex-col gap-2 rounded-xl border p-3 transition-[opacity,box-shadow] duration-150 active:cursor-grabbing ${
         conColor ? "border-current/25" : "border-border bg-surface"
-      } ${zona.encima ? "ring-2 ring-accent" : ""}`}
+      } ${fantasma ? "opacity-40 outline-2 outline-dashed outline-accent" : ""}`}
     >
       <div className="flex gap-2.5">
         {/* El equipo acomodado como el panel de personaje del juego. Quien

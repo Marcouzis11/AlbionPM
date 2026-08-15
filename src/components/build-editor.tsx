@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 
 import { saveBuild } from "@/app/actions/builds";
 import { ColorPicker, type UsedColor } from "@/components/color-picker";
+import { Desplegable } from "@/components/desplegable";
 import { ItemPicker } from "@/components/item-picker";
 import type { Build, Role } from "@/lib/builds-shared";
 import { EQUIPMENT_SLOTS, type BuildItem, type EquipmentSlot } from "@/lib/items";
@@ -121,20 +122,14 @@ export function BuildEditor({ build, roles, usedColors, onClose, onSaved }: Prop
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <select
+          <Desplegable
             value={draft.role_id ?? ""}
-            onChange={(event) =>
-              setDraft({ ...draft, role_id: event.target.value || null })
-            }
-            className="h-9 min-w-40 rounded-lg border border-border bg-surface-2 px-2.5 text-sm"
-          >
-            <option value="">Sin rol</option>
-            {roles.map((role) => (
-              <option key={role.id} value={role.id}>
-                {role.name}
-              </option>
-            ))}
-          </select>
+            opciones={roles.map((role) => ({ value: role.id, label: role.name }))}
+            onChange={(valor) => setDraft({ ...draft, role_id: valor || null })}
+            etiqueta="Rol de la build"
+            vacio="Sin rol"
+            className="h-9 min-w-40"
+          />
 
           <div className="relative">
             <button

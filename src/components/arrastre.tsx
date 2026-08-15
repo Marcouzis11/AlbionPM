@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 
 /**
  * Arrastrar y soltar.
@@ -37,12 +37,45 @@ export function loQueSeArrastra(): Arrastrado | null {
   return enVuelo;
 }
 
+/* --------------------------------------------------------------------------
+   Aviso reactivo de qué se está arrastrando.
+
+   La variable de módulo alcanza para decidir si una zona acepta lo que viene,
+   porque eso se pregunta dentro de un evento. Pero para mostrar el hueco donde
+   va a caer la cosa hay que volver a pintar mientras el arrastre pasa por
+   encima, y para eso React tiene que enterarse de que algo empezó a moverse.
+   -------------------------------------------------------------------------- */
+
+const oyentes = new Set<() => void>();
+
+function anunciar(dato: Arrastrado | null) {
+  enVuelo = dato;
+  for (const oyente of oyentes) oyente();
+}
+
+function suscribir(oyente: () => void) {
+  oyentes.add(oyente);
+  return () => {
+    oyentes.delete(oyente);
+  };
+}
+
+/** Qué se está arrastrando ahora mismo, o `null`. */
+export function useArrastrado(): Arrastrado | null {
+  return useSyncExternalStore(
+    suscribir,
+    () => enVuelo,
+    // En el servidor nunca hay nada arrastrándose.
+    () => null,
+  );
+}
+
 /** Lo que hay que ponerle a algo para poder tomarlo. */
 export function propsDeArrastre(dato: Arrastrado) {
   return {
     draggable: true,
     onDragStart: (evento: React.DragEvent) => {
-      enVuelo = dato;
+      anunciar(dato);
       evento.dataTransfer.effectAllowed = "move";
       // Firefox no arranca el arrastre si no se escribe algo en el portapapeles
       // del evento, aunque después no lo leamos.
@@ -50,7 +83,7 @@ export function propsDeArrastre(dato: Arrastrado) {
       evento.stopPropagation();
     },
     onDragEnd: () => {
-      enVuelo = null;
+      anunciar(null);
     },
   };
 }
@@ -99,7 +132,7 @@ export function useZonaDeSoltar(
         evento.stopPropagation();
         limpiar();
         const dato = loQueSeArrastra();
-        enVuelo = null;
+        anunciar(null);
         if (dato && acepta(dato)) alSoltar(dato);
       },
     },

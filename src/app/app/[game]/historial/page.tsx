@@ -40,13 +40,14 @@ export default async function HistorialPage({
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Historial</h1>
         <p className="mt-1 text-sm text-muted">
-          Todo lo que armaste, de lo más reciente a lo más viejo.
+          Las composiciones que compartiste, de la más reciente a la más vieja.
         </p>
       </div>
 
       {compositions.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted">
-          Todavía no hay nada en el historial.
+          Todavía no hay nada acá. Una composición entra al historial cuando la
+          compartís, que es cuando deja de ser un borrador.
         </div>
       ) : (
         [...porMes.entries()].map(([mes, comps]) => (

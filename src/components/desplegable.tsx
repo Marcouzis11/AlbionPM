@@ -3,6 +3,8 @@
 import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { Flotante } from "@/components/flotante";
+
 /**
  * Un desplegable con el diseño de la aplicación.
  *
@@ -43,7 +45,7 @@ export function Desplegable({
 }) {
   const [abierto, setAbierto] = useState(false);
   const [marcada, setMarcada] = useState(0);
-  const contenedor = useRef<HTMLDivElement>(null);
+  const [ancho, setAncho] = useState(0);
   const boton = useRef<HTMLButtonElement>(null);
   const lista = useRef<HTMLDivElement>(null);
 
@@ -53,19 +55,11 @@ export function Desplegable({
   /** Abrir deja marcada la opción actual, no la primera. */
   function abrir() {
     setMarcada(Math.max(0, todas.findIndex((o) => o.value === value)));
+    // La lista se dibuja fuera del contenedor, así que no puede heredar el
+    // ancho del botón: se lo mide y se lo pasa.
+    setAncho(boton.current?.offsetWidth ?? 0);
     setAbierto(true);
   }
-
-  useEffect(() => {
-    if (!abierto) return;
-    // Se cierra al tocar afuera. `mousedown` y no `click` para que cerrar no
-    // dispare de paso lo que haya debajo.
-    function afuera(evento: MouseEvent) {
-      if (!contenedor.current?.contains(evento.target as Node)) setAbierto(false);
-    }
-    document.addEventListener("mousedown", afuera);
-    return () => document.removeEventListener("mousedown", afuera);
-  }, [abierto]);
 
   useEffect(() => {
     if (abierto) lista.current?.focus();
@@ -97,7 +91,7 @@ export function Desplegable({
   }
 
   return (
-    <div ref={contenedor} className={`relative ${className}`}>
+    <div className={className}>
       <button
         ref={boton}
         type="button"
@@ -121,34 +115,44 @@ export function Desplegable({
       </button>
 
       {abierto && (
-        <div
-          ref={lista}
-          role="listbox"
-          aria-label={etiqueta}
-          tabIndex={-1}
-          onKeyDown={teclas}
-          className="absolute left-0 top-full z-50 mt-1 max-h-60 w-full min-w-40 overflow-y-auto rounded-lg border border-border bg-surface p-1 shadow-xl outline-none"
+        <Flotante
+          ancla={boton}
+          onCerrar={() => {
+            setAbierto(false);
+            boton.current?.focus();
+          }}
+          className="p-1"
         >
-          {todas.map((opcion, indice) => (
-            <div
-              key={opcion.value || "__vacio__"}
-              role="option"
-              aria-selected={opcion.value === value}
-              onClick={() => elegir(opcion)}
-              onMouseEnter={() => setMarcada(indice)}
-              className={`flex min-h-8 cursor-pointer items-center gap-1.5 rounded px-1.5 text-xs ${
-                indice === marcada ? "bg-surface-2" : ""
-              } ${opcion.value ? "" : "text-muted"}`}
-            >
-              <Check
-                size={12}
-                aria-hidden
-                className={`shrink-0 ${opcion.value === value ? "" : "invisible"}`}
-              />
-              <span className="min-w-0 flex-1 truncate">{opcion.label}</span>
-            </div>
-          ))}
-        </div>
+          <div
+            ref={lista}
+            role="listbox"
+            aria-label={etiqueta}
+            tabIndex={-1}
+            onKeyDown={teclas}
+            style={{ minWidth: Math.max(ancho, 160) }}
+            className="max-h-60 overflow-y-auto outline-none"
+          >
+            {todas.map((opcion, indice) => (
+              <div
+                key={opcion.value || "__vacio__"}
+                role="option"
+                aria-selected={opcion.value === value}
+                onClick={() => elegir(opcion)}
+                onMouseEnter={() => setMarcada(indice)}
+                className={`flex min-h-8 cursor-pointer items-center gap-1.5 rounded px-1.5 text-xs ${
+                  indice === marcada ? "bg-surface-2" : ""
+                } ${opcion.value ? "" : "text-muted"}`}
+              >
+                <Check
+                  size={12}
+                  aria-hidden
+                  className={`shrink-0 ${opcion.value === value ? "" : "invisible"}`}
+                />
+                <span className="min-w-0 flex-1 truncate">{opcion.label}</span>
+              </div>
+            ))}
+          </div>
+        </Flotante>
       )}
     </div>
   );

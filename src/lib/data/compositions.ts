@@ -34,11 +34,20 @@ export async function listCompositions(contentId: string): Promise<CompositionSu
 }
 
 /** Historial: todas las composiciones del usuario, de la más reciente a la más vieja. */
+/**
+ * El historial: las composiciones que llegaron a compartirse.
+ *
+ * No son todas. Una composición a medio armar, o una prueba que quedó por ahí,
+ * no es historia de nada: ensucia la lista y hace que encontrar la CTA del
+ * sábado pasado cueste más. Compartir es el momento en que una composición pasa
+ * de borrador a algo que se usó de verdad, así que ese es el corte.
+ */
 export async function listAllCompositions(): Promise<CompositionSummary[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("compositions")
     .select(CAMPOS)
+    .not("share_slug", "is", null)
     .order("event_at", { ascending: false });
 
   if (error) throw new Error(`No se pudo leer el historial: ${error.message}`);
