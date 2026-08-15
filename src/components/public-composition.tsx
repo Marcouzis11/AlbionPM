@@ -1,9 +1,11 @@
 "use client";
 
+import { Crown, User } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ItemIcon } from "@/components/item-icon";
-import { EQUIPMENT_SLOTS, type EquipmentSlot } from "@/lib/items";
+import { DISPOSICION_EQUIPO } from "@/lib/builds-shared";
+import { type EquipmentSlot } from "@/lib/items";
 import {
   buscarJugador,
   formatearEvento,
@@ -224,45 +226,65 @@ function FichaPersonal({
       <div className="space-y-4 p-4">
         {/* Lo primero después de saber que sos vos: a quién seguir. */}
         <div className="rounded-lg bg-surface-2 px-3 py-2">
-          <span className="text-xs uppercase tracking-wider text-muted">
-            Líder de tu grupo
-          </span>
-          <p className="text-lg font-medium">
-            {slot.is_leader ? (
-              <>
-                Sos vos <span className="text-accent">★</span>
-              </>
-            ) : (
-              (lider?.player_name ?? "Sin líder marcado")
-            )}
+          <span className="text-xs font-medium text-muted">Líder de tu grupo</span>
+          <p className="flex items-center gap-1.5 text-lg font-medium">
+            <Crown
+              size={17}
+              aria-hidden
+              className="shrink-0 text-accent"
+              fill="currentColor"
+              stroke="#101013"
+              strokeWidth={1.5}
+            />
+            {slot.is_leader ? "Sos vos" : (lider?.player_name ?? "Sin líder marcado")}
           </p>
         </div>
 
         {build ? (
           <div>
             <h2 className="mb-2 text-sm font-medium text-muted">Tu build: {build.name}</h2>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {EQUIPMENT_SLOTS.map((s) =>
-                build.items[s] ? (
-                  <div
-                    key={s}
-                    className="flex items-center gap-2 rounded-lg bg-surface-2 p-2"
-                  >
-                    <ItemIcon item={build.items[s]} size={40} priority />
-                    <span className="min-w-0">
-                      <span className="block text-[10px] uppercase tracking-wider text-muted">
-                        {SLOT_LABELS[s]}
-                      </span>
-                      {/* El nombre en texto, no solo el ícono: es lo que se
-                          copia y se pega en el buscador del mercado. */}
-                      <span className="block truncate text-xs">
-                        {build.items[s].id.replace(/^T\d_/, "").replace(/_/g, " ")}
-                        {build.items[s].ench ? ` .${build.items[s].ench}` : ""}
-                      </span>
+            {/* Acomodado como el panel de personaje del juego, igual que en la
+                aplicación: quien juega reconoce la pieza por su lugar. El
+                nombre en texto se queda debajo, porque es lo que se copia y se
+                pega en el buscador del mercado. */}
+            <div className="flex flex-wrap items-start gap-4">
+              <div className="grid w-44 shrink-0 grid-cols-3">
+                {DISPOSICION_EQUIPO.flat().map((slot, indice) =>
+                  slot === null ? (
+                    <span key={`hueco-${indice}`} aria-hidden />
+                  ) : build.items[slot] ? (
+                    <ItemIcon
+                      key={slot}
+                      item={build.items[slot]}
+                      name={SLOT_LABELS[slot]}
+                      size={96}
+                      priority
+                      className="h-auto w-full"
+                    />
+                  ) : (
+                    <span
+                      key={slot}
+                      className="m-1 flex aspect-square items-center justify-center rounded border border-dashed border-border text-[9px] font-semibold leading-none text-muted"
+                    >
+                      {SLOT_LABELS[slot].slice(0, 4)}
                     </span>
-                  </div>
-                ) : null,
-              )}
+                  ),
+                )}
+              </div>
+
+              <ul className="min-w-0 flex-1 space-y-0.5 text-xs">
+                {DISPOSICION_EQUIPO.flat().map((slot) =>
+                  slot && build.items[slot] ? (
+                    <li key={slot} className="flex gap-1.5">
+                      <span className="w-16 shrink-0 text-muted">{SLOT_LABELS[slot]}</span>
+                      <span className="min-w-0 flex-1">
+                        {build.items[slot].id.replace(/^T\d_/, "").replace(/_/g, " ")}
+                        {build.items[slot].ench ? ` .${build.items[slot].ench}` : ""}
+                      </span>
+                    </li>
+                  ) : null,
+                )}
+              </ul>
             </div>
             {build.notes && (
               <p className="mt-2 rounded-lg border border-border px-3 py-2 text-sm">
@@ -293,7 +315,16 @@ function FichaPersonal({
             <ul className="mt-2 space-y-1">
               {companeros.map((c) => (
                 <li key={c.position} className="flex items-center gap-2 text-xs">
-                  {c.is_leader && <span className="text-accent">★</span>}
+                  {c.is_leader && (
+                    <Crown
+                      size={12}
+                      aria-label="Líder"
+                      className="shrink-0 text-accent"
+                      fill="currentColor"
+                      stroke="#101013"
+                      strokeWidth={1.5}
+                    />
+                  )}
                   <span>{c.player_name}</span>
                   <span className="text-muted">{c.role?.name}</span>
                 </li>
@@ -323,6 +354,10 @@ function GrupoCompleto({
   group: SharedGroup;
   resaltado: SharedSlot | undefined;
 }) {
+  const confirmados = group.slots.filter(
+    (s) => (s.player_name ?? "").trim() !== "",
+  ).length;
+
   return (
     <section className="overflow-hidden rounded-xl border border-border">
       <header className="flex items-center gap-2 border-b border-border bg-surface px-3 py-2">
@@ -332,6 +367,13 @@ function GrupoCompleto({
             {group.guild_name}
           </span>
         )}
+        <span
+          className="ml-auto flex items-center gap-1 text-xs tabular-nums text-muted"
+          title={`${confirmados} de ${group.slots.length} lugares con nombre`}
+        >
+          <User size={13} aria-hidden />
+          {confirmados}/{group.slots.length}
+        </span>
       </header>
 
       <ul className="divide-y divide-border">
@@ -350,21 +392,39 @@ function GrupoCompleto({
                 : undefined
             }
           >
-            <span className="w-4 text-accent">{slot.is_leader ? "★" : ""}</span>
+            <span className="flex w-4 shrink-0 justify-center">
+              {slot.is_leader && (
+                <Crown
+                  size={13}
+                  aria-label="Líder del grupo"
+                  fill="currentColor"
+                  stroke="#101013"
+                  strokeWidth={1.5}
+                />
+              )}
+            </span>
 
-            <span className="flex gap-0.5">
+            <span className="flex shrink-0">
               {(["mainhand", "offhand", "head", "armor", "shoes"] as const).map((s) =>
                 slot.build?.items[s] ? (
-                  <ItemIcon key={s} item={slot.build.items[s]} size={24} />
+                  <ItemIcon key={s} item={slot.build.items[s]} size={64} className="size-8" />
                 ) : null,
               )}
             </span>
 
             <span className="min-w-0 flex-1 truncate font-medium">
-              {slot.player_name || <span className="text-muted">Sin asignar</span>}
+              {slot.player_name || (
+                <span className={slot.build?.color ? "opacity-70" : "text-muted"}>
+                  Sin asignar
+                </span>
+              )}
             </span>
 
-            <span className="truncate text-xs text-muted">
+            <span
+              className={`truncate text-xs ${
+                slot.build?.color ? "font-medium opacity-85" : "text-muted"
+              }`}
+            >
               {slot.role?.name}
               {slot.build && ` · ${slot.build.name}`}
             </span>
