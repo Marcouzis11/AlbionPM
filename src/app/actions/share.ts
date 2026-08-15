@@ -7,6 +7,13 @@ import { revalidatePath } from "next/cache";
 import type { ShareFormats } from "@/lib/shared-composition";
 import { createClient } from "@/lib/supabase/server";
 
+/** Compartir cambia la composición, el historial y la vista pública. */
+function revalidarCompartido() {
+  revalidatePath("/app/[game]/comp/[compId]", "page");
+  revalidatePath("/app/[game]/historial", "page");
+  revalidatePath("/p/[slug]", "page");
+}
+
 export type ShareState = { error?: string; slug?: string };
 
 /**
@@ -54,7 +61,7 @@ export async function enableSharing(
 
   if (error) return { error: error.message };
 
-  revalidatePath("/app", "layout");
+  revalidarCompartido();
   return { slug };
 }
 
@@ -67,7 +74,7 @@ export async function disableSharing(compositionId: string): Promise<ShareState>
 
   if (error) return { error: error.message };
 
-  revalidatePath("/app", "layout");
+  revalidarCompartido();
   return {};
 }
 
@@ -83,6 +90,6 @@ export async function updateShareFormats(
 
   if (error) return { error: error.message };
 
-  revalidatePath("/app", "layout");
+  revalidarCompartido();
   return {};
 }

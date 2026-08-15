@@ -5,6 +5,12 @@ import { revalidatePath } from "next/cache";
 import { colorSugerido, esColorDeContenido } from "@/lib/color";
 import { createClient } from "@/lib/supabase/server";
 
+/** Los contenidos se ven en el Party Maker y se nombran en el historial. */
+function revalidarContenidos() {
+  revalidatePath("/app/[game]", "page");
+  revalidatePath("/app/[game]/historial", "page");
+}
+
 /**
  * Alta, edición, reordenamiento y baja de contenidos.
  *
@@ -57,7 +63,7 @@ export async function createContent(
 
   if (error) return { error: `No se pudo crear: ${error.message}` };
 
-  revalidatePath("/app", "layout");
+  revalidarContenidos();
   return {};
 }
 
@@ -70,7 +76,7 @@ export async function renameContent(id: string, name: string): Promise<ContentSt
 
   if (error) return { error: error.message };
 
-  revalidatePath("/app", "layout");
+  revalidarContenidos();
   return {};
 }
 
@@ -143,7 +149,7 @@ export async function deleteContentWithCompositions(
     return { error: `No se pudo borrar el contenido: ${error.message}` };
   }
 
-  revalidatePath("/app", "layout");
+  revalidarContenidos();
   return {};
 }
 
@@ -163,6 +169,6 @@ export async function deleteContent(id: string): Promise<ContentState> {
     return { error: error.message };
   }
 
-  revalidatePath("/app", "layout");
+  revalidarContenidos();
   return {};
 }

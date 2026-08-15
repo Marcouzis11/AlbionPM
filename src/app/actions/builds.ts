@@ -6,6 +6,22 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 
 /**
+ * Qué hay que volver a pedir cuando cambia una build o una carpeta.
+ *
+ * Antes acá decía `revalidatePath("/app", "layout")`, que tira abajo TODO el
+ * armazón: el juego, la lista de juegos y la validación de la sesión contra el
+ * servidor de Supabase, que es un viaje de red aparte. Mover una build
+ * disparaba seis consultas, y a esta base hay unos 400 ms de ida y vuelta.
+ *
+ * Las builds se ven en dos pantallas: la biblioteca y el editor de composición,
+ * que las usa para pintar cada fila. El armazón no cambia nunca por esto.
+ */
+function revalidarBuilds() {
+  revalidatePath("/app/[game]/builds", "page");
+  revalidatePath("/app/[game]/comp/[compId]", "page");
+}
+
+/**
  * Altas, ediciones y bajas de la biblioteca de builds.
  *
  * Los borrados que afectan a otras cosas no se resuelven acá. La base rechaza
@@ -75,7 +91,7 @@ export async function createFolder(
 
   if (error) return { error: error.message };
 
-  revalidatePath("/app", "layout");
+  revalidarBuilds();
   return { id: data.id };
 }
 
@@ -87,7 +103,7 @@ export async function renameFolder(id: string, name: string): Promise<ActionStat
   const { error } = await supabase.from("build_folders").update({ name: clean }).eq("id", id);
 
   if (error) return { error: error.message };
-  revalidatePath("/app", "layout");
+  revalidarBuilds();
   return {};
 }
 
@@ -109,7 +125,7 @@ export async function setFolderColor(
   const { error } = await supabase.from("build_folders").update({ color }).eq("id", id);
 
   if (error) return { error: error.message };
-  revalidatePath("/app", "layout");
+  revalidarBuilds();
   return {};
 }
 
@@ -143,7 +159,7 @@ export async function reorderBuilds(
   const fallo = resultados.find((resultado) => resultado.error);
   if (fallo?.error) return { error: fallo.error.message };
 
-  revalidatePath("/app", "layout");
+  revalidarBuilds();
   return {};
 }
 
@@ -165,7 +181,7 @@ export async function moveBuild(
     .eq("id", id);
 
   if (error) return { error: error.message };
-  revalidatePath("/app", "layout");
+  revalidarBuilds();
   return {};
 }
 
@@ -211,7 +227,7 @@ export async function moveFolder(
     .eq("id", id);
 
   if (error) return { error: error.message };
-  revalidatePath("/app", "layout");
+  revalidarBuilds();
   return {};
 }
 
@@ -245,7 +261,7 @@ export async function deleteFolder(id: string, rescatar: boolean): Promise<Actio
   const { error } = await supabase.from("build_folders").delete().eq("id", id);
   if (error) return { error: error.message };
 
-  revalidatePath("/app", "layout");
+  revalidarBuilds();
   return {};
 }
 
@@ -287,7 +303,7 @@ export async function createBuild(
 
   if (error) return { error: error.message };
 
-  revalidatePath("/app", "layout");
+  revalidarBuilds();
   return { id: data.id };
 }
 
@@ -341,7 +357,7 @@ export async function saveBuild(
 
   if (error) return { error: error.message };
 
-  revalidatePath("/app", "layout");
+  revalidarBuilds();
   return {};
 }
 
@@ -368,6 +384,6 @@ export async function deleteBuild(id: string): Promise<ActionState> {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/app", "layout");
+  revalidarBuilds();
   return {};
 }

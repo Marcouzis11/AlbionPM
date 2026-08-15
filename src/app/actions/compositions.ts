@@ -5,6 +5,20 @@ import { revalidatePath } from "next/cache";
 import { MAX_POR_GRUPO } from "@/lib/compositions-shared";
 import { createClient } from "@/lib/supabase/server";
 
+/**
+ * Qué hay que volver a pedir cuando cambia una composición.
+ *
+ * La composición en sí, el Party Maker que la lista dentro de su carpeta, y el
+ * historial. El armazón de la aplicación no cambia por esto, así que no se
+ * toca: cada `revalidatePath` de más son consultas de más, y a esta base hay
+ * unos 400 ms de ida y vuelta.
+ */
+function revalidarComposiciones() {
+  revalidatePath("/app/[game]", "page");
+  revalidatePath("/app/[game]/comp/[compId]", "page");
+  revalidatePath("/app/[game]/historial", "page");
+}
+
 export type CompState = { error?: string; id?: string };
 
 /** Plantillas que ofrece la página al crear una composición. */
@@ -74,7 +88,7 @@ export async function createComposition(
     }
   }
 
-  revalidatePath("/app", "layout");
+  revalidarComposiciones();
   return { id: comp.id };
 }
 
@@ -105,7 +119,7 @@ export async function updateComposition(
 
   if (error) return { error: traducir(error.message) };
 
-  revalidatePath("/app", "layout");
+  revalidarComposiciones();
   return {};
 }
 
@@ -127,7 +141,7 @@ export async function addGroup(compositionId: string): Promise<CompState> {
 
   if (error) return { error: traducir(error.message) };
 
-  revalidatePath("/app", "layout");
+  revalidarComposiciones();
   return {};
 }
 
@@ -139,7 +153,7 @@ export async function updateGroup(
   const { error } = await supabase.from("comp_groups").update(patch).eq("id", id);
 
   if (error) return { error: traducir(error.message) };
-  revalidatePath("/app", "layout");
+  revalidarComposiciones();
   return {};
 }
 
@@ -171,7 +185,7 @@ export async function swapGroups(
     .eq("id", b.id);
   if (segundo.error) return { error: traducir(segundo.error.message) };
 
-  revalidatePath("/app", "layout");
+  revalidarComposiciones();
   return {};
 }
 
@@ -180,7 +194,7 @@ export async function deleteGroup(id: string): Promise<CompState> {
   const { error } = await supabase.from("comp_groups").delete().eq("id", id);
 
   if (error) return { error: traducir(error.message) };
-  revalidatePath("/app", "layout");
+  revalidarComposiciones();
   return {};
 }
 
@@ -204,7 +218,7 @@ export async function addSlot(groupId: string): Promise<CompState> {
   });
 
   if (error) return { error: traducir(error.message) };
-  revalidatePath("/app", "layout");
+  revalidarComposiciones();
   return {};
 }
 
@@ -221,7 +235,7 @@ export async function updateSlot(
   const { error } = await supabase.from("comp_slots").update(patch).eq("id", id);
 
   if (error) return { error: traducir(error.message) };
-  revalidatePath("/app", "layout");
+  revalidarComposiciones();
   return {};
 }
 
@@ -272,7 +286,7 @@ export async function swapSlots(a: string, b: string): Promise<CompState> {
   const fallo = resultados.find((r) => r.error);
   if (fallo?.error) return { error: traducir(fallo.error.message) };
 
-  revalidatePath("/app", "layout");
+  revalidarComposiciones();
   return {};
 }
 
@@ -291,7 +305,7 @@ export async function setLeader(groupId: string, slotId: string): Promise<CompSt
     .eq("id", slotId);
 
   if (error) return { error: traducir(error.message) };
-  revalidatePath("/app", "layout");
+  revalidarComposiciones();
   return {};
 }
 
@@ -300,7 +314,7 @@ export async function deleteSlot(id: string): Promise<CompState> {
   const { error } = await supabase.from("comp_slots").delete().eq("id", id);
 
   if (error) return { error: traducir(error.message) };
-  revalidatePath("/app", "layout");
+  revalidarComposiciones();
   return {};
 }
 
@@ -375,7 +389,7 @@ export async function duplicateComposition(
     if (slots.length > 0) await supabase.from("comp_slots").insert(slots);
   }
 
-  revalidatePath("/app", "layout");
+  revalidarComposiciones();
   return { id: copia.id };
 }
 
@@ -404,7 +418,7 @@ export async function moveComposition(
     .eq("id", id);
 
   if (error) return { error: traducir(error.message) };
-  revalidatePath("/app", "layout");
+  revalidarComposiciones();
   return {};
 }
 
@@ -423,7 +437,7 @@ export async function emptyComposition(id: string): Promise<CompState> {
       .eq("group_id", group.id);
   }
 
-  revalidatePath("/app", "layout");
+  revalidarComposiciones();
   return {};
 }
 
@@ -432,7 +446,7 @@ export async function deleteComposition(id: string): Promise<CompState> {
   const { error } = await supabase.from("compositions").delete().eq("id", id);
 
   if (error) return { error: traducir(error.message) };
-  revalidatePath("/app", "layout");
+  revalidarComposiciones();
   return {};
 }
 
