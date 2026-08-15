@@ -22,12 +22,34 @@ function revalidarComposiciones() {
 export type CompState = { error?: string; id?: string };
 
 /** Plantillas que ofrece la página al crear una composición. */
-export type Plantilla = "vacia" | "party20" | "gremio" | "multigremio";
+export type Plantilla =
+  | "vacia"
+  | "party5"
+  | "party10"
+  | "party20"
+  | "grupos2"
+  | "gremio"
+  | "grupos4"
+  | "grupos5"
+  | "multigremio";
 
+/**
+ * Las formas con las que se puede arrancar una composición.
+ *
+ * Todas se pueden modificar después: agregar un grupo, sacar lugares. La
+ * plantilla es un punto de partida, no una jaula, y por eso conviene que haya
+ * varias en vez de una sola muy configurable: elegir «cuatro grupos» es un
+ * click, y llegar a cuatro grupos desde uno son tres.
+ */
 const PLANTILLAS: Record<Plantilla, { grupos: number; conGremio: boolean; slots: number }> = {
   vacia: { grupos: 1, conGremio: false, slots: 0 },
+  party5: { grupos: 1, conGremio: false, slots: 5 },
+  party10: { grupos: 1, conGremio: false, slots: 10 },
   party20: { grupos: 1, conGremio: false, slots: MAX_POR_GRUPO },
+  grupos2: { grupos: 2, conGremio: false, slots: MAX_POR_GRUPO },
   gremio: { grupos: 3, conGremio: false, slots: MAX_POR_GRUPO },
+  grupos4: { grupos: 4, conGremio: false, slots: MAX_POR_GRUPO },
+  grupos5: { grupos: 5, conGremio: false, slots: MAX_POR_GRUPO },
   multigremio: { grupos: 3, conGremio: true, slots: MAX_POR_GRUPO },
 };
 

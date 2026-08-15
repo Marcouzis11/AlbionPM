@@ -49,10 +49,15 @@ type Forma = {
 };
 
 const PLANTILLAS: Forma[] = [
+  { value: "party5", label: "Gankeo", detalle: "5 lugares", grupos: 1, lugares: 5, conGremio: false },
+  { value: "party10", label: "Media party", detalle: "10 lugares", grupos: 1, lugares: 10, conGremio: false },
   { value: "party20", label: "Party de 20", detalle: "Un grupo", grupos: 1, lugares: 20, conGremio: false },
-  { value: "gremio", label: "Gremio", detalle: "Tres grupos de 20", grupos: 3, lugares: 20, conGremio: false },
-  { value: "multigremio", label: "Multigremio", detalle: "Tres gremios", grupos: 3, lugares: 20, conGremio: true },
-  { value: "vacia", label: "Vacía", detalle: "Un grupo sin lugares", grupos: 1, lugares: 0, conGremio: false },
+  { value: "grupos2", label: "Dos grupos", detalle: "40 lugares", grupos: 2, lugares: 20, conGremio: false },
+  { value: "gremio", label: "Gremio", detalle: "Tres grupos", grupos: 3, lugares: 20, conGremio: false },
+  { value: "grupos4", label: "Cuatro grupos", detalle: "80 lugares", grupos: 4, lugares: 20, conGremio: false },
+  { value: "grupos5", label: "Cinco grupos", detalle: "100 lugares", grupos: 5, lugares: 20, conGremio: false },
+  { value: "multigremio", label: "Multigremio", detalle: "Tres, con gremio", grupos: 3, lugares: 20, conGremio: true },
+  { value: "vacia", label: "Vacía", detalle: "Sin lugares", grupos: 1, lugares: 0, conGremio: false },
 ];
 
 /**
@@ -69,13 +74,13 @@ function MiniPlantilla({ forma }: { forma: Forma }) {
       {Array.from({ length: forma.grupos }, (_, grupo) => (
         <span
           key={grupo}
-          className="flex w-8 flex-col gap-0.5 rounded border border-current/40 p-0.5"
+          className="flex w-6 flex-col gap-0.5 rounded border border-current/40 p-0.5"
         >
           {forma.conGremio && <span className="h-1 rounded-sm bg-current/70" />}
           {forma.lugares === 0 ? (
-            <span className="h-6" />
+            <span className="h-5" />
           ) : (
-            <span className="grid grid-cols-5 gap-px">
+            <span className="grid grid-cols-4 gap-px">
               {Array.from({ length: forma.lugares }, (_, lugar) => (
                 <span key={lugar} className="aspect-square rounded-[1px] bg-current/60" />
               ))}
@@ -757,7 +762,7 @@ function NuevaComposicion({
           {PLANTILLAS.map((forma) => (
             <label
               key={forma.value}
-              className={`flex w-[8.5rem] cursor-pointer flex-col items-center gap-2 rounded-lg border p-2.5 text-center transition-colors ${
+              className={`flex w-[7.25rem] cursor-pointer flex-col items-center gap-2 rounded-lg border p-2 text-center transition-colors ${
                 plantilla === forma.value
                   ? "border-accent bg-accent/10 text-accent"
                   : "border-border text-muted hover:border-accent/60"
