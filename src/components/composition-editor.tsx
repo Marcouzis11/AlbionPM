@@ -31,6 +31,7 @@ import {
   useZonaDeSoltar,
 } from "@/components/arrastre";
 import { BuildPeek } from "@/components/build-peek";
+import { Desplegable } from "@/components/desplegable";
 import { CompHeader } from "@/components/comp-header";
 import { colorEfectivo, type Build, type BuildFolder, type Role } from "@/lib/builds-shared";
 import { textoSobre } from "@/lib/color";
@@ -306,11 +307,11 @@ function TarjetaGrupo({
             ? { background: color, color: textoSobre(color) }
             : undefined;
 
-          // Sobre un color lleno, los campos no pueden tener fondo propio: se
-          // vuelven transparentes y se apoyan en el color del texto de la fila.
-          const campo = pintada
-            ? "border-current/40 bg-transparent placeholder:text-current/60"
-            : "border-border bg-surface-2";
+          // Los campos conservan SIEMPRE el fondo de la página. Transparentes
+          // sobre el color de la build se volvían ilegibles con cada color
+          // distinto, y encima el texto que se escribe adentro no es de la
+          // build: es del jugador.
+          const campo = "border-border bg-surface text-text";
 
           return (
             <SlotFila
@@ -421,44 +422,37 @@ function SlotFila({
               : "text-border hover:text-muted"
         }`}
       >
-        <Crown size={15} fill={slot.is_leader ? "currentColor" : "none"} />
+        {/* Contorno oscuro finito: sin él una corona blanca sobre un fondo
+            claro desaparece, que es justo cuando más se la busca. */}
+        <Crown
+          size={15}
+          fill={slot.is_leader ? "currentColor" : "none"}
+          stroke="#101013"
+          strokeWidth={1.5}
+        />
       </button>
 
       <BuildPeek build={build} />
 
-      <select
-        defaultValue={slot.build_id ?? ""}
+      <Desplegable
+        value={slot.build_id ?? ""}
+        opciones={builds.map((b) => ({ value: b.id, label: b.name }))}
+        onChange={(v) => onRun(() => updateSlot(slot.id, { build_id: v || null }))}
+        etiqueta="Build"
+        vacio="Build…"
         disabled={bloqueado}
-        aria-label="Build"
-        onChange={(event) =>
-          onRun(() => updateSlot(slot.id, { build_id: event.target.value || null }))
-        }
-        className={`h-8 w-24 shrink-0 rounded border px-1 text-xs sm:w-32 ${campo}`}
-      >
-        <option value="">Build…</option>
-        {builds.map((b) => (
-          <option key={b.id} value={b.id}>
-            {b.name}
-          </option>
-        ))}
-      </select>
+        className="h-8 w-24 shrink-0 sm:w-32"
+      />
 
-      <select
-        defaultValue={slot.role_id ?? ""}
+      <Desplegable
+        value={slot.role_id ?? ""}
+        opciones={roles.map((r) => ({ value: r.id, label: r.name }))}
+        onChange={(v) => onRun(() => updateSlot(slot.id, { role_id: v || null }))}
+        etiqueta="Rol"
+        vacio="Rol…"
         disabled={bloqueado}
-        aria-label="Rol"
-        onChange={(event) =>
-          onRun(() => updateSlot(slot.id, { role_id: event.target.value || null }))
-        }
-        className={`hidden h-8 w-24 shrink-0 rounded border px-1 text-xs sm:block ${campo}`}
-      >
-        <option value="">Rol…</option>
-        {roles.map((role) => (
-          <option key={role.id} value={role.id}>
-            {role.name}
-          </option>
-        ))}
-      </select>
+        className="hidden h-8 w-24 shrink-0 sm:block"
+      />
 
       <input
         defaultValue={slot.player_name ?? ""}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Lock, Plus, Trash2 } from "lucide-react";
+import { Copy, Lock, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useState, useTransition } from "react";
@@ -13,6 +13,7 @@ import {
 } from "@/app/actions/contents";
 import {
   createComposition,
+  duplicateComposition,
   moveComposition,
   type Plantilla,
 } from "@/app/actions/compositions";
@@ -141,6 +142,14 @@ export function PartyMaker({
           compositions={suyas}
           otrosContenidos={contents.filter((otro) => otro.id !== content.id)}
           onMover={(compId, destino) => correr(() => moveComposition(compId, destino))}
+          onDuplicar={(comp) =>
+            correr(() =>
+              duplicateComposition(comp.id, {
+                conBuilds: true,
+                nombre: `${comp.name} (duplicado)`,
+              }),
+            )
+          }
         />
       ),
       accion: (
@@ -469,6 +478,7 @@ function ContenidoAbierto({
   compositions,
   otrosContenidos,
   onMover,
+  onDuplicar,
 }: {
   contentId: string;
   contentName: string;
@@ -476,6 +486,7 @@ function ContenidoAbierto({
   compositions: CompositionSummary[];
   otrosContenidos: Content[];
   onMover: (composicionId: string, contenidoDestino: string) => void;
+  onDuplicar: (comp: CompositionSummary) => void;
 }) {
   const [creando, setCreando] = useState(false);
 
@@ -518,6 +529,16 @@ function ContenidoAbierto({
                 {formatearCorta(comp.event_at, comp.event_tz)}
               </span>
             </Link>
+
+            <button
+              type="button"
+              onClick={() => onDuplicar(comp)}
+              aria-label={`Duplicar ${comp.name}`}
+              title="Duplicar en esta misma carpeta"
+              className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-text"
+            >
+              <Copy size={14} aria-hidden />
+            </button>
 
             {otrosContenidos.length > 0 && (
               <MoverA

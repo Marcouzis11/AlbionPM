@@ -31,7 +31,8 @@ import {
   type Arrastrado,
 } from "@/components/arrastre";
 import { BuildEditor } from "@/components/build-editor";
-import type { UsedColor } from "@/components/color-picker";
+import { Desplegable } from "@/components/desplegable";
+import { ColorPicker, type UsedColor } from "@/components/color-picker";
 import { ItemIcon } from "@/components/item-icon";
 import { MoverA, type Destino } from "@/components/mover-a";
 import {
@@ -42,7 +43,7 @@ import {
   type BuildFolder,
   type Role,
 } from "@/lib/builds-shared";
-import { PALETA_CONTENIDOS, textoSobre } from "@/lib/color";
+import { textoSobre } from "@/lib/color";
 
 /**
  * Biblioteca de builds.
@@ -319,6 +320,7 @@ export function BuildsLibrary({
                 if (nombre !== f.name) correr(() => renameFolder(f.id, nombre));
               }}
               color={f.color}
+              usedColors={usedColors}
               onColor={(nuevo) => correr(() => setFolderColor(f.id, nuevo))}
               onEmpezarRenombre={() => setRenombrando(f.id)}
               onCancelarRenombre={() => setRenombrando(null)}
@@ -369,33 +371,23 @@ export function BuildsLibrary({
           aria-label="Buscar build"
           className="h-10 w-full min-w-44 rounded-lg border border-border bg-surface px-3 text-sm sm:w-56"
         />
-        <select
+        <Desplegable
           value={roleFilter}
-          onChange={(event) => setRoleFilter(event.target.value)}
-          aria-label="Filtrar por rol"
-          className="h-10 rounded-lg border border-border bg-surface px-2.5 text-sm"
-        >
-          <option value="">Todos los roles</option>
-          {roles.map((role) => (
-            <option key={role.id} value={role.id}>
-              {role.name}
-            </option>
-          ))}
-        </select>
+          opciones={roles.map((r) => ({ value: r.id, label: r.name }))}
+          onChange={setRoleFilter}
+          etiqueta="Filtrar por rol"
+          vacio="Todos los roles"
+          className="h-10 w-40"
+        />
         {allTags.length > 0 && (
-          <select
+          <Desplegable
             value={tagFilter}
-            onChange={(event) => setTagFilter(event.target.value)}
-            aria-label="Filtrar por tag"
-            className="h-10 rounded-lg border border-border bg-surface px-2.5 text-sm"
-          >
-            <option value="">Todos los tags</option>
-            {allTags.map((tag) => (
-              <option key={tag} value={tag}>
-                {tag}
-              </option>
-            ))}
-          </select>
+            opciones={allTags.map((t) => ({ value: t, label: t }))}
+            onChange={setTagFilter}
+            etiqueta="Filtrar por tag"
+            vacio="Todos los tags"
+            className="h-10 w-40"
+          />
         )}
 
         <div className="ml-auto flex gap-2">
@@ -568,6 +560,7 @@ function FilaCarpeta({
   renombrando,
   destinos,
   color,
+  usedColors,
   onColor,
   onAlternar,
   onRenombrar,
@@ -588,6 +581,7 @@ function FilaCarpeta({
   renombrando: boolean;
   destinos: Destino[];
   color: string | null;
+  usedColors: UsedColor[];
   onColor: (color: string | null) => void;
   onAlternar: () => void;
   onRenombrar: (nombre: string) => void;
@@ -679,7 +673,12 @@ function FilaCarpeta({
         >
           <FolderPlus size={14} aria-hidden />
         </button>
-        <ColorDeCarpeta nombre={folder.name} color={color} onElegir={onColor} />
+        <ColorDeCarpeta
+          nombre={folder.name}
+          color={color}
+          usedColors={usedColors}
+          onElegir={onColor}
+        />
         <button
           type="button"
           onClick={onEmpezarRenombre}
@@ -717,10 +716,12 @@ function FilaCarpeta({
 function ColorDeCarpeta({
   nombre,
   color,
+  usedColors,
   onElegir,
 }: {
   nombre: string;
   color: string | null;
+  usedColors: UsedColor[];
   onElegir: (color: string | null) => void;
 }) {
   const [abierto, setAbierto] = useState(false);
@@ -750,28 +751,17 @@ function ColorDeCarpeta({
             onClick={() => setAbierto(false)}
             aria-hidden
           />
-          <div className="absolute right-0 top-full z-40 mt-1 w-44 rounded-xl border border-border bg-surface p-2 shadow-xl">
-            <p className="px-1 pb-1.5 text-[11px] font-medium text-muted">
+          <div className="absolute right-0 top-full z-40 mt-1 w-72 rounded-xl border border-border bg-surface p-3 shadow-xl">
+            <p className="pb-2 text-[11px] font-medium text-muted">
               Color de la carpeta
             </p>
-            <div className="flex flex-wrap gap-1.5">
-              {PALETA_CONTENIDOS.map((opcion) => (
-                <button
-                  key={opcion.hex}
-                  type="button"
-                  title={opcion.nombre}
-                  aria-label={opcion.nombre}
-                  onClick={() => {
-                    setAbierto(false);
-                    onElegir(opcion.hex);
-                  }}
-                  style={{ background: opcion.hex }}
-                  className={`size-6 rounded-lg ring-2 ring-offset-2 ring-offset-surface transition-[box-shadow] ${
-                    color === opcion.hex ? "ring-text" : "ring-transparent"
-                  }`}
-                />
-              ))}
-            </div>
+            {/* El mismo selector que dentro de una build: si la carpeta pinta
+                sus builds, tiene que poder llegar al mismo color exacto. */}
+            <ColorPicker
+              value={color}
+              onChange={(nuevo) => onElegir(nuevo)}
+              used={usedColors}
+            />
             {color && (
               <button
                 type="button"
@@ -852,10 +842,10 @@ function TarjetaBuild({
             juega reconoce la pieza por su lugar, sin leer ninguna etiqueta, y
             los huecos vacíos del panel original se respetan por lo mismo.
 
-            Los íconos no llevan recuadro: el ícono del juego YA viene recortado
-            con su propio marco, así que dibujarle otro alrededor era ponerle un
-            marco a un marco. */}
-        <div className="grid w-[7.5rem] shrink-0 grid-cols-3 gap-px">
+            Sin separación entre casilleros: el ícono del juego YA viene con su
+            propio marco y su propio aire adentro, así que cualquier hueco extra
+            se suma al que la imagen ya trae y los deja flotando sueltos. */}
+        <div className="grid w-[6.75rem] shrink-0 grid-cols-3">
           {DISPOSICION_EQUIPO.flat().map((slot, indice) =>
             slot === null ? (
               <span key={`hueco-${indice}`} aria-hidden />
@@ -863,14 +853,14 @@ function TarjetaBuild({
               <ItemIcon
                 key={slot}
                 item={build.items[slot]}
-                size={64}
+                size={72}
                 className="aspect-square w-full"
               />
             ) : (
               <span
                 key={slot}
                 title={SIGLAS[slot]}
-                className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-current/30 text-[9px] leading-none opacity-60"
+                className="m-0.5 flex aspect-square items-center justify-center rounded border border-dashed border-current/30 text-[8px] leading-none opacity-60"
               >
                 {SIGLAS[slot]}
               </span>
@@ -905,14 +895,17 @@ function TarjetaBuild({
               ))}
             </ul>
           )}
-
-          {nota && (
-            <p className={`text-xs leading-snug ${conColor ? "opacity-80" : "text-muted"}`}>
-              {nota}
-            </p>
-          )}
         </div>
       </div>
+
+      {/* La descripción va abajo y a lo ancho de la tarjeta. Al costado del
+          equipo entraba en una columna angosta y se cortaba a las cuatro
+          palabras, con el resto de la tarjeta vacío. */}
+      {nota && (
+        <p className={`text-xs leading-snug ${conColor ? "opacity-80" : "text-muted"}`}>
+          {nota}
+        </p>
+      )}
 
       <div className="mt-auto flex items-center gap-1 pt-1">
         <button

@@ -164,11 +164,18 @@ export function bordeDeFila(hex: string): string {
 /**
  * Blanco o negro, el que se lea mejor encima de ese color.
  *
- * Hace falta porque el color de una build se pinta lleno, sin mezclar con el
- * fondo: un amarillo y un azul marino son los dos colores válidos, y el mismo
- * texto encima funciona en uno y desaparece en el otro. La fórmula es la
- * luminancia relativa de WCAG, que es la que define el contraste real y no el
- * brillo aparente.
+ * Hace falta porque el color de una build se pinta lleno: un amarillo y un azul
+ * marino son los dos válidos, y el mismo texto encima funciona en uno y
+ * desaparece en el otro.
+ *
+ * El umbral NO es la mitad. Blanco y negro empatan en contraste recién cuando
+ * la luminancia relativa vale 0,179, bastante más abajo de lo que sugiere la
+ * intuición, porque el ojo pesa mucho más las luces que las sombras. Una
+ * versión anterior de esto cortaba en 0,45 y pintaba de blanco fondos donde el
+ * blanco da 2,5:1 y el negro 8,3:1, o sea justo al revés.
+ *
+ * Se calcula el contraste real contra los dos y gana el más alto, así el umbral
+ * no queda escrito a mano en ningún lado y no se puede volver a errar.
  */
 export function textoSobre(hex: string): string {
   const { r, g, b } = hexToRgb(hex);
@@ -177,7 +184,8 @@ export function textoSobre(hex: string): string {
     return n <= 0.03928 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4;
   };
   const luz = 0.2126 * canal(r) + 0.7152 * canal(g) + 0.0722 * canal(b);
-  // 0.45 y no 0.5: el umbral donde el blanco y el negro empatan en contraste
-  // está por debajo del medio, porque el ojo pesa más las luces.
-  return luz > 0.45 ? "#101013" : "#ffffff";
+
+  const contraBlanco = 1.05 / (luz + 0.05);
+  const contraNegro = (luz + 0.05) / 0.05;
+  return contraBlanco > contraNegro ? "#ffffff" : "#101013";
 }
