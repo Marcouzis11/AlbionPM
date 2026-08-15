@@ -1,7 +1,9 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
+
+import { Flotante } from "@/components/flotante";
 
 import { ItemIcon } from "@/components/item-icon";
 import { DISPOSICION_EQUIPO, type Build } from "@/lib/builds-shared";
@@ -33,12 +35,13 @@ const SLOT_LABELS: Record<EquipmentSlot, string> = {
 
 export function BuildPeek({ build }: { build: Build | undefined }) {
   const [abierto, setAbierto] = useState(false);
+  const boton = useRef<HTMLButtonElement>(null);
 
   if (!build) {
     return (
       <span
         aria-hidden
-        className="size-10 shrink-0 rounded-lg border border-dashed border-border"
+        className="size-12 shrink-0 rounded-lg border border-dashed border-border"
       />
     );
   }
@@ -46,19 +49,20 @@ export function BuildPeek({ build }: { build: Build | undefined }) {
   const arma = build.items.mainhand;
 
   return (
-    <span className="relative flex shrink-0 items-center">
+    <span className="flex shrink-0 items-center">
       <button
+        ref={boton}
         type="button"
         onClick={() => setAbierto((v) => !v)}
         aria-expanded={abierto}
         aria-label={`Ver el equipo de ${build.name}`}
         title={build.name}
-        className="group relative flex size-10 items-center justify-center rounded-lg border border-transparent transition-colors hover:border-accent"
+        className="group relative flex size-12 items-center justify-center rounded-lg border border-transparent transition-colors hover:border-accent"
       >
         {arma ? (
-          <ItemIcon item={arma} size={40} />
+          <ItemIcon item={arma} size={64} className="size-12" />
         ) : (
-          <span className="size-8 rounded-lg border border-dashed border-border" />
+          <span className="size-10 rounded-lg border border-dashed border-border" />
         )}
 
         {/* Marca chiquita de «hay más». Sin esto, nada indica que la fila
@@ -73,47 +77,48 @@ export function BuildPeek({ build }: { build: Build | undefined }) {
       </button>
 
       {abierto && (
-        <>
-          {/* Capa para cerrar tocando afuera, sin robar el foco del teclado. */}
-          <span
-            className="fixed inset-0 z-30"
-            onClick={() => setAbierto(false)}
-            aria-hidden
-          />
-          <span className="absolute left-0 top-full z-40 mt-1 block w-72 rounded-xl border border-border bg-surface p-3 shadow-xl">
-            <span className="mb-2 block truncate text-xs font-medium">{build.name}</span>
+        // Se dibuja fuera de la fila con `Flotante`, y no acá adentro con una
+        // capa a pantalla completa para cerrarlo. Esa capa tapaba la página y
+        // no dejaba scrollear hasta cerrar el panel. Además, la fila tiene un
+        // color de texto propio calculado contra el color de la build, y el
+        // panel lo heredaba: el nombre salía en negro sobre el gris del panel.
+        <Flotante
+          ancla={boton}
+          onCerrar={() => setAbierto(false)}
+          className="w-72 p-3 text-text"
+        >
+          <p className="mb-2 truncate text-xs font-medium">{build.name}</p>
 
-            <span className="grid grid-cols-3 gap-0.5">
-              {DISPOSICION_EQUIPO.flat().map((slot, indice) =>
-                slot === null ? (
-                  <span key={`v-${indice}`} aria-hidden />
-                ) : (
-                  <span
-                    key={slot}
-                    title={`${SLOT_LABELS[slot]}${build.items[slot] ? "" : " (vacío)"}`}
-                    className={`flex aspect-square items-center justify-center rounded-lg ${
-                      build.items[slot] ? "" : "border border-dashed border-border"
-                    }`}
-                  >
-                    {build.items[slot] ? (
-                      <ItemIcon item={build.items[slot]} size={72} className="h-auto w-full" />
-                    ) : (
-                      <span className="text-[9px] font-semibold text-muted">
-                        {SLOT_LABELS[slot].slice(0, 3)}
-                      </span>
-                    )}
-                  </span>
-                ),
-              )}
-            </span>
-
-            {build.notes && (
-              <span className="mt-2 block border-t border-border pt-2 text-[11px] leading-snug text-muted">
-                {build.notes}
-              </span>
+          <div className="grid grid-cols-3 gap-0.5">
+            {DISPOSICION_EQUIPO.flat().map((slot, indice) =>
+              slot === null ? (
+                <span key={`v-${indice}`} aria-hidden />
+              ) : (
+                <span
+                  key={slot}
+                  title={`${SLOT_LABELS[slot]}${build.items[slot] ? "" : " (vacío)"}`}
+                  className={`flex aspect-square items-center justify-center rounded-lg ${
+                    build.items[slot] ? "" : "border border-dashed border-border"
+                  }`}
+                >
+                  {build.items[slot] ? (
+                    <ItemIcon item={build.items[slot]} size={96} className="h-auto w-full" />
+                  ) : (
+                    <span className="text-[9px] font-semibold text-muted">
+                      {SLOT_LABELS[slot].slice(0, 3)}
+                    </span>
+                  )}
+                </span>
+              ),
             )}
-          </span>
-        </>
+          </div>
+
+          {build.notes && (
+            <p className="mt-2 border-t border-border pt-2 text-[11px] leading-snug text-muted">
+              {build.notes}
+            </p>
+          )}
+        </Flotante>
       )}
     </span>
   );

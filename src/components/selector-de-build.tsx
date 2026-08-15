@@ -10,6 +10,7 @@ import {
   DISPOSICION_EQUIPO,
   type Build,
   type BuildFolder,
+  type Role,
 } from "@/lib/builds-shared";
 import { textoSobre } from "@/lib/color";
 
@@ -25,13 +26,24 @@ import { textoSobre } from "@/lib/color";
  * reconocerla sin leer.
  */
 
-/** Las piezas que alcanzan para reconocer una build de un vistazo. */
-const CLAVE = ["mainhand", "offhand", "head", "armor", "shoes"] as const;
+/** Siglas de los casilleros vacíos, iguales a las de la biblioteca. */
+const SIGLAS: Record<string, string> = {
+  mainhand: "Arma",
+  offhand: "Off",
+  head: "Cab",
+  armor: "Pech",
+  shoes: "Bot",
+  cape: "Capa",
+  food: "Com",
+  potion: "Poc",
+  mount: "Mont",
+};
 
 export function SelectorDeBuild({
   value,
   builds,
   folders,
+  roles,
   onChange,
   disabled = false,
   className = "",
@@ -39,10 +51,14 @@ export function SelectorDeBuild({
   value: string | null;
   builds: Build[];
   folders: BuildFolder[];
+  roles: Role[];
   onChange: (buildId: string | null) => void;
   disabled?: boolean;
   className?: string;
 }) {
+  const rolDe = (build: Build) =>
+    build.role_id ? roles.find((r) => r.id === build.role_id)?.name : undefined;
+
   const [abierto, setAbierto] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [plegadas, setPlegadas] = useState<Set<string>>(new Set());
@@ -105,16 +121,23 @@ export function SelectorDeBuild({
           );
         })}
 
-        {propias.map((build) => (
-          <Fila
-            key={build.id}
-            build={build}
-            color={colorEfectivo(build, folders)}
-            sangria={nivel * 14 + 6}
-            elegida={build.id === value}
-            onElegir={() => elegir(build.id)}
-          />
-        ))}
+        {propias.length > 0 && (
+          <div
+            className="grid grid-cols-2 gap-1.5 py-1"
+            style={{ marginLeft: nivel * 14 + 6 }}
+          >
+            {propias.map((build) => (
+              <Tarjeta
+                key={build.id}
+                build={build}
+                color={colorEfectivo(build, folders)}
+                rol={rolDe(build)}
+                elegida={build.id === value}
+                onElegir={() => elegir(build.id)}
+              />
+            ))}
+          </div>
+        )}
       </>
     );
   }
@@ -150,7 +173,7 @@ export function SelectorDeBuild({
         <Flotante
           ancla={boton}
           onCerrar={() => setAbierto(false)}
-          className="flex max-h-96 w-80 flex-col p-2"
+          className="flex max-h-[26rem] w-80 flex-col p-2"
         >
           <div className="relative shrink-0">
             <Search
@@ -185,16 +208,18 @@ export function SelectorDeBuild({
                   Ninguna build se llama así.
                 </p>
               ) : (
-                resultados.map((build) => (
-                  <Fila
-                    key={build.id}
-                    build={build}
-                    color={colorEfectivo(build, folders)}
-                    sangria={6}
-                    elegida={build.id === value}
-                    onElegir={() => elegir(build.id)}
-                  />
-                ))
+                <div className="grid grid-cols-2 gap-1.5 py-1">
+                  {resultados.map((build) => (
+                    <Tarjeta
+                      key={build.id}
+                      build={build}
+                      color={colorEfectivo(build, folders)}
+                      rol={rolDe(build)}
+                      elegida={build.id === value}
+                      onElegir={() => elegir(build.id)}
+                    />
+                  ))}
+                </div>
               )
             ) : (
               rama(null, 0)
@@ -206,56 +231,68 @@ export function SelectorDeBuild({
   );
 }
 
-/** Una build dentro del menú: su color, su nombre y lo que lleva puesto. */
-function Fila({
+/**
+ * Una build dentro del menú, con la misma forma que en la biblioteca.
+ *
+ * Sin descripción: acá estás eligiendo, no leyendo. Alcanza con el equipo para
+ * reconocerla, el nombre para confirmarla y el rol para no confundir dos que se
+ * parecen. La nota entera haría el menú tres veces más largo justo cuando lo
+ * que querés es cerrarlo rápido.
+ */
+function Tarjeta({
   build,
   color,
-  sangria,
+  rol,
   elegida,
   onElegir,
 }: {
   build: Build;
   color: string | null;
-  sangria: number;
+  rol: string | undefined;
   elegida: boolean;
   onElegir: () => void;
 }) {
+  const estilo = color
+    ? { background: color, color: textoSobre(color) }
+    : undefined;
+
   return (
     <button
       type="button"
       onClick={onElegir}
-      style={{ paddingLeft: sangria }}
-      className={`flex min-h-10 w-full items-center gap-2 rounded pr-2 text-left transition-colors hover:bg-surface-2 ${
-        elegida ? "bg-surface-2" : ""
-      }`}
+      style={estilo}
+      className={`flex flex-col gap-1 rounded-lg border p-1.5 text-left ${
+        color ? "border-current/25" : "border-border bg-surface"
+      } ${elegida ? "ring-2 ring-accent" : ""}`}
     >
-      <span
-        aria-hidden
-        className="h-6 w-1 shrink-0 rounded-full"
-        style={{ background: color ?? "var(--border)" }}
-      />
-
-      <span className="flex shrink-0 gap-0.5">
-        {CLAVE.map((slot) =>
-          build.items[slot] ? (
-            <ItemIcon key={slot} item={build.items[slot]} size={40} className="size-5" />
+      <span className="grid w-full grid-cols-3">
+        {DISPOSICION_EQUIPO.flat().map((slot, indice) =>
+          slot === null ? (
+            <span key={`hueco-${indice}`} aria-hidden />
+          ) : build.items[slot] ? (
+            <ItemIcon
+              key={slot}
+              item={build.items[slot]}
+              size={64}
+              className="h-auto w-full"
+            />
           ) : (
-            <span key={slot} className="size-5 rounded-sm border border-dashed border-border" />
+            <span
+              key={slot}
+              className="m-px flex aspect-square items-center justify-center rounded-sm border border-dashed border-current/30 text-[7px] font-semibold leading-none opacity-70"
+            >
+              {SIGLAS[slot]}
+            </span>
           ),
         )}
       </span>
 
-      <span className="min-w-0 flex-1 truncate text-xs">{build.name}</span>
-
-      {color && (
-        <span
-          aria-hidden
-          style={{ background: color, color: textoSobre(color) }}
-          className="shrink-0 rounded px-1 text-[9px] font-medium"
-        >
-          {build.tags[0] ?? ""}
+      <span className="min-w-0">
+        <span className="block truncate text-xs font-medium">{build.name}</span>
+        <span className={`block truncate text-[10px] ${color ? "opacity-80" : "text-muted"}`}>
+          {rol ?? "Sin rol"}
         </span>
-      )}
+      </span>
     </button>
   );
 }

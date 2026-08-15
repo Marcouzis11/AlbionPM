@@ -280,6 +280,7 @@ export function PartyMaker({
           // La primera arranca abierta: una pantalla de carpetas todas
           // cerradas no muestra nada de lo que la persona vino a buscar.
           inicialAbierta={contenidosVisibles[0]?.id ?? null}
+          recuerdo={`albionpm-carpeta-abierta:${gameSlug}`}
           vacio={{
             titulo: "Elegí una carpeta",
             detalle:

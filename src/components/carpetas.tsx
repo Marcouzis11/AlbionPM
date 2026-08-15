@@ -61,15 +61,39 @@ export type FichaDeCarpeta = {
 export function GrillaCarpetas({
   carpetas,
   inicialAbierta = null,
+  recuerdo,
   vacio,
 }: {
   carpetas: FichaDeCarpeta[];
-  /** Cuál arranca abierta. `null` deja el panel en su estado de bienvenida. */
+  /** Cuál arranca abierta si no hay nada recordado. */
   inicialAbierta?: string | null;
+  /**
+   * Con qué nombre se recuerda cuál estaba abierta.
+   *
+   * Ir a Builds y volver te devolvía a la pantalla de bienvenida, y había que
+   * buscar de nuevo la carpeta en la que estabas trabajando. Se guarda en el
+   * navegador y no en la base porque es una preferencia de esta pantalla y de
+   * este rato, no un dato del gremio.
+   */
+  recuerdo?: string;
   /** Qué decir en el panel cuando todavía no elegiste ninguna carpeta. */
   vacio: { titulo: string; detalle: string };
 }) {
-  const [abierta, setAbierta] = useState<string | null>(inicialAbierta);
+  const [abierta, setAbierta] = useState<string | null>(() => {
+    if (typeof window === "undefined" || !recuerdo) return inicialAbierta;
+    const guardada = window.localStorage.getItem(recuerdo);
+    // Solo vale si esa carpeta sigue existiendo: una borrada dejaría el panel
+    // vacío sin ninguna explicación.
+    if (guardada && carpetas.some((c) => c.id === guardada)) return guardada;
+    return inicialAbierta;
+  });
+
+  function elegir(id: string | null) {
+    setAbierta(id);
+    if (!recuerdo || typeof window === "undefined") return;
+    if (id) window.localStorage.setItem(recuerdo, id);
+    else window.localStorage.removeItem(recuerdo);
+  }
 
   const visible = carpetas.find((c) => c.id === abierta);
 
@@ -87,9 +111,7 @@ export function GrillaCarpetas({
             <Ficha
               carpeta={carpeta}
               abierta={abierta === carpeta.id}
-              onAlternar={() =>
-                setAbierta((previa) => (previa === carpeta.id ? null : carpeta.id))
-              }
+              onAlternar={() => elegir(abierta === carpeta.id ? null : carpeta.id)}
             />
           </li>
         ))}
@@ -102,7 +124,7 @@ export function GrillaCarpetas({
           <CuerpoPanel
             key={visible.id}
             carpeta={visible}
-            onCerrar={() => setAbierta(null)}
+            onCerrar={() => elegir(null)}
           />
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border p-10 text-center">

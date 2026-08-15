@@ -612,6 +612,7 @@ function SlotFila({
         value={visto.build_id}
         builds={builds}
         folders={folders}
+        roles={roles}
         onChange={(id) => onActualizar(slot.id, { build_id: id })}
         disabled={bloqueado}
         className="h-8 w-24 shrink-0 sm:w-36"
