@@ -105,17 +105,28 @@ export function BuildEditor({ build, roles, usedColors, onClose, onSaved }: Prop
         className="flex h-full w-full max-w-2xl flex-col overflow-y-auto border-l border-border bg-bg p-6"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex shrink-0 items-start justify-between gap-3">
-          <input
-            value={draft.name}
-            onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-            className="min-w-0 flex-1 truncate rounded-lg border border-transparent bg-transparent px-2 py-1 text-xl font-semibold hover:border-border focus:border-border"
-          />
+        <div className="flex shrink-0 items-end justify-between gap-3">
+          {/* Un campo con cara de campo. Antes esto era el nombre dibujado como
+              título: sin borde, sin fondo y sin etiqueta, y el borde aparecía
+              recién al pasar el mouse. Se podía editar, pero no había manera de
+              darse cuenta de que se podía. */}
+          <label className="min-w-0 flex-1">
+            <span className="mb-1 block text-xs font-medium text-muted">
+              Nombre de la build
+            </span>
+            <input
+              value={draft.name}
+              onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+              placeholder="Ponele un nombre"
+              maxLength={80}
+              className="h-11 w-full rounded-lg border border-border bg-surface-2 px-3 text-lg font-semibold"
+            />
+          </label>
           <button
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="shrink-0 rounded-lg px-2 py-1 text-muted hover:bg-surface-2"
+            className="mb-0.5 shrink-0 rounded-lg px-2 py-1 text-xl text-muted hover:bg-surface-2"
           >
             ×
           </button>
