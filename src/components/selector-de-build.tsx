@@ -104,7 +104,7 @@ export function SelectorDeBuild({
 
         {propias.length > 0 && (
           <div
-            className="grid grid-cols-3 gap-1.5 py-1"
+            className="grid grid-cols-2 gap-2 py-1"
             style={{ marginLeft: nivel * 14 + 6 }}
           >
             {propias.map((build) => (
@@ -153,7 +153,7 @@ export function SelectorDeBuild({
         <Flotante
           ancla={boton}
           onCerrar={() => setAbierto(false)}
-          className="flex max-h-[26rem] w-96 flex-col p-2"
+          className="flex max-h-[30rem] w-[27rem] flex-col p-2"
         >
           <div className="relative shrink-0">
             <Search
@@ -188,7 +188,7 @@ export function SelectorDeBuild({
                   Ninguna build se llama así.
                 </p>
               ) : (
-                <div className="grid grid-cols-3 gap-1.5 py-1">
+                <div className="grid grid-cols-2 gap-2 py-1">
                   {resultados.map((build) => (
                     <Tarjeta
                       key={build.id}
@@ -211,13 +211,15 @@ export function SelectorDeBuild({
 }
 
 /**
- * Una build dentro del menú, con la misma forma que en la biblioteca pero en
- * chico: el equipo y el nombre, nada más.
+ * Una build dentro del menú.
  *
- * Sin rol y sin descripción. Acá estás eligiendo, no leyendo: el equipo alcanza
- * para reconocerla y el nombre para confirmarla. Cada línea de texto de más
- * agranda la tarjeta y hace el menú más largo, justo cuando lo que querés es
- * cerrarlo rápido.
+ * Misma pinta que en la biblioteca —el color de la build de fondo, el equipo
+ * acomodado como el panel del juego, el texto elegido por contraste— pero con
+ * lo justo para elegir: los íconos y el nombre.
+ *
+ * Sin rol, sin tags y sin descripción. Acá estás eligiendo, no leyendo: el
+ * equipo alcanza para reconocerla y el nombre para confirmarla. Cada línea de
+ * texto de más alarga el menú justo cuando lo que querés es cerrarlo rápido.
  */
 function Tarjeta({
   build,
@@ -238,7 +240,7 @@ function Tarjeta({
       title={build.name}
       onClick={onElegir}
       style={estilo}
-      className={`flex flex-col gap-0.5 rounded-lg border p-1 text-left ${
+      className={`flex flex-col gap-2 rounded-xl border p-2.5 text-left ${
         color ? "border-current/25" : "border-border bg-surface"
       } ${elegida ? "ring-2 ring-accent" : ""}`}
     >
@@ -250,20 +252,20 @@ function Tarjeta({
             <ItemIcon
               key={slot}
               item={build.items[slot]}
-              size={64}
+              size={96}
               className="h-auto w-full"
             />
           ) : (
             <span
               key={slot}
               aria-hidden
-              className="m-px aspect-square rounded-sm border border-dashed border-current/25"
+              className="m-1 aspect-square rounded border border-dashed border-current/30"
             />
           ),
         )}
       </span>
 
-      <span className="block truncate text-[11px] font-medium leading-tight">
+      <span className="block truncate text-sm font-medium leading-tight">
         {build.name}
       </span>
     </button>
