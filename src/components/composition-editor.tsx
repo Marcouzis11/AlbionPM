@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 
 import {
   addGroup,
@@ -46,7 +46,6 @@ import {
   type CompSlot,
   type Composition,
 } from "@/lib/compositions-shared";
-import { tinteDeFila } from "@/lib/color";
 
 /**
  * Editor de composición.
@@ -87,6 +86,22 @@ export function CompositionEditor({
       se ve el salto de ida y vuelta. */
   const [soltado, setSoltado] = useState<{ a: string; b: string } | null>(null);
 
+  /**
+   * Los cambios de una fila que todavía no confirmó el servidor.
+   *
+   * Los campos de una fila muestran lo que dice el servidor, así que elegir una
+   * build dejaba el desplegable en el valor viejo hasta que volvía la
+   * respuesta: parecía que el click no había hecho nada. Acá se anota lo que
+   * elegiste y se pinta encima mientras tanto.
+   */
+  const [pendientes, setPendientes] = useState<Map<string, Partial<CompSlot>>>(
+    () => new Map(),
+  );
+
+  // Cuál fue el último cambio de cada fila. Sin esto, una respuesta lenta que
+  // llega después de un cambio más nuevo borraría el más nuevo de la pantalla.
+  const ultimo = useRef(new Map<string, number>());
+
   const slotsPorId = useMemo(
     () =>
       new Map(
@@ -102,11 +117,64 @@ export function CompositionEditor({
       arrastrado?.tipo === "lugar" && sobre && arrastrado.id !== sobre
         ? { a: arrastrado.id, b: sobre }
         : soltado;
-    if (!par) return slot;
 
-    if (slot.id === par.a) return slotsPorId.get(par.b) ?? slot;
-    if (slot.id === par.b) return slotsPorId.get(par.a) ?? slot;
-    return slot;
+    let base = slot;
+    if (par) {
+      if (slot.id === par.a) base = slotsPorId.get(par.b) ?? slot;
+      else if (slot.id === par.b) base = slotsPorId.get(par.a) ?? slot;
+    }
+
+    const pendiente = pendientes.get(base.id);
+    return pendiente ? { ...base, ...pendiente } : base;
+  }
+
+  /** Escribe un cambio de fila mostrándolo de una, sin esperar al servidor. */
+  function actualizarSlot(id: string, patch: Partial<CompSlot>) {
+    const numero = (ultimo.current.get(id) ?? 0) + 1;
+    ultimo.current.set(id, numero);
+
+    setPendientes((previo) => {
+      const siguiente = new Map(previo);
+      siguiente.set(id, { ...previo.get(id), ...patch });
+      return siguiente;
+    });
+
+    startTransition(async () => {
+      await updateSlot(id, patch);
+      router.refresh();
+      if (ultimo.current.get(id) !== numero) return;
+      setPendientes((previo) => {
+        const siguiente = new Map(previo);
+        siguiente.delete(id);
+        return siguiente;
+      });
+    });
+  }
+
+  /** La corona, también de una: es un click y tiene que verse como tal. */
+  function ponerCorona(grupo: CompGroup, slotId: string) {
+    setPendientes((previo) => {
+      const siguiente = new Map(previo);
+      for (const s of grupo.slots) {
+        siguiente.set(s.id, { ...previo.get(s.id), is_leader: s.id === slotId });
+      }
+      return siguiente;
+    });
+
+    startTransition(async () => {
+      await setLeader(grupo.id, slotId);
+      router.refresh();
+      setPendientes((previo) => {
+        const siguiente = new Map(previo);
+        for (const s of grupo.slots) {
+          const resto = { ...previo.get(s.id) };
+          delete resto.is_leader;
+          if (Object.keys(resto).length === 0) siguiente.delete(s.id);
+          else siguiente.set(s.id, resto);
+        }
+        return siguiente;
+      });
+    });
   }
 
   function intercambiar(a: string, b: string) {
@@ -195,6 +263,8 @@ export function CompositionEditor({
               contenidoDe={contenidoDe}
               onSobre={setSobre}
               onIntercambiar={intercambiar}
+              onActualizar={actualizarSlot}
+              onCorona={(slotId) => ponerCorona(group, slotId)}
               enVuelo={arrastrado?.tipo === "lugar" ? arrastrado.id : null}
               onAdelantar={
                 anterior && (() => run(() => swapGroups(group, anterior)))
@@ -244,6 +314,8 @@ function TarjetaGrupo({
   contenidoDe,
   onSobre,
   onIntercambiar,
+  onActualizar,
+  onCorona,
   enVuelo,
   onAdelantar,
   onAtrasar,
@@ -260,6 +332,8 @@ function TarjetaGrupo({
   contenidoDe: (slot: CompSlot) => CompSlot;
   onSobre: (slotId: string | null) => void;
   onIntercambiar: (a: string, b: string) => void;
+  onActualizar: (id: string, patch: Partial<CompSlot>) => void;
+  onCorona: (slotId: string) => void;
   /** El lugar que se está arrastrando, para mostrarlo apagado. */
   enVuelo: string | null;
   /** `undefined` cuando ya es el primero o el último. */
@@ -386,7 +460,8 @@ function TarjetaGrupo({
               apagada={enVuelo === slot.id}
               onSobre={onSobre}
               onIntercambiar={onIntercambiar}
-              grupoId={group.id}
+              onActualizar={onActualizar}
+              onCorona={onCorona}
               build={build}
               estilo={estilo}
               pintada={pintada}
@@ -429,7 +504,8 @@ function SlotFila({
   apagada,
   onSobre,
   onIntercambiar,
-  grupoId,
+  onActualizar,
+  onCorona,
   build,
   estilo,
   pintada,
@@ -446,7 +522,8 @@ function SlotFila({
   apagada: boolean;
   onSobre: (slotId: string | null) => void;
   onIntercambiar: (a: string, b: string) => void;
-  grupoId: string;
+  onActualizar: (id: string, patch: Partial<CompSlot>) => void;
+  onCorona: (slotId: string) => void;
   build: Build | undefined;
   estilo: React.CSSProperties | undefined;
   pintada: boolean;
@@ -499,7 +576,7 @@ function SlotFila({
         aria-label={slot.is_leader ? "Tiene la corona" : "Darle la corona"}
         aria-pressed={slot.is_leader}
         disabled={bloqueado || slot.is_leader}
-        onClick={() => onRun(() => setLeader(grupoId, slot.id))}
+        onClick={() => onCorona(slot.id)}
         className={`flex size-7 shrink-0 items-center justify-center rounded ${
           slot.is_leader
             ? pintada
@@ -526,7 +603,7 @@ function SlotFila({
         value={visto.build_id}
         builds={builds}
         folders={folders}
-        onChange={(id) => onRun(() => updateSlot(slot.id, { build_id: id }))}
+        onChange={(id) => onActualizar(slot.id, { build_id: id })}
         disabled={bloqueado}
         className="h-8 w-24 shrink-0 sm:w-36"
       />
@@ -534,7 +611,7 @@ function SlotFila({
       <Desplegable
         value={visto.role_id ?? ""}
         opciones={roles.map((r) => ({ value: r.id, label: r.name }))}
-        onChange={(v) => onRun(() => updateSlot(slot.id, { role_id: v || null }))}
+        onChange={(v) => onActualizar(slot.id, { role_id: v || null })}
         etiqueta="Rol"
         vacio="Rol…"
         disabled={bloqueado}
@@ -551,7 +628,8 @@ function SlotFila({
         placeholder="Nombre"
         aria-label="Nombre del jugador"
         onBlur={(event) =>
-          onRun(() => updateSlot(slot.id, { player_name: event.target.value }))
+          event.target.value !== (visto.player_name ?? "") &&
+          onActualizar(slot.id, { player_name: event.target.value })
         }
         className={`h-8 min-w-0 flex-1 rounded border px-2 text-xs ${campo}`}
       />
