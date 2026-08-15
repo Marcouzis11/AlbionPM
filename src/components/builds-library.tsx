@@ -753,7 +753,7 @@ function FilaCarpeta({
         )}
       </button>
 
-      <div className="flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+      <div className="flex shrink-0 items-center opacity-0 focus-within:opacity-100 group-hover:opacity-100">
         <button
           type="button"
           onClick={onNuevaBuild}

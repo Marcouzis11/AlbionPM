@@ -145,7 +145,7 @@ function Ficha({
     <div
       {...zona.props}
       {...(tomar ? propsDeArrastre(tomar) : {})}
-      className={`group relative aspect-square transition-transform duration-200 motion-reduce:transition-none ${
+      className={`group relative aspect-square ${
         abierta ? "-translate-y-0.5" : "hover:-translate-y-0.5"
       } ${tomar ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
@@ -180,7 +180,7 @@ function Ficha({
       </button>
 
       {carpeta.accion && (
-        <div className="absolute right-1.5 top-6 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+        <div className="absolute right-1.5 top-6 opacity-0 focus-within:opacity-100 group-hover:opacity-100">
           {carpeta.accion}
         </div>
       )}
