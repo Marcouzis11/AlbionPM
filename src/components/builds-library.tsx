@@ -36,7 +36,7 @@ import { Flotante } from "@/components/flotante";
 import { ColorPicker, type UsedColor } from "@/components/color-picker";
 import { ItemIcon } from "@/components/item-icon";
 import { MoverA, type Destino } from "@/components/mover-a";
-import { idProvisional, useOptimista } from "@/components/optimista";
+import { esProvisional, idProvisional, useOptimista } from "@/components/optimista";
 import {
   colorEfectivo,
   countFolderChildren,
@@ -311,6 +311,7 @@ export function BuildsLibrary({
           <Fragment key={f.id}>
             <FilaCarpeta
               folder={f}
+              creandose={esProvisional(f.id)}
               nivel={nivel}
               abierta={abiertas.has(f.id)}
               seleccionada={seleccionada === f.id}
@@ -501,7 +502,7 @@ export function BuildsLibrary({
               <Vacio>
                 {seleccionada
                   ? "Esta carpeta no tiene builds. Creá la primera o arrastrá una desde otra."
-                  : "No hay builds sueltas. Elegí una carpeta a la derecha."}
+                  : "No hay builds fuera de las carpetas. Elegí una carpeta a la izquierda."}
               </Vacio>
             )}
           </div>
@@ -714,6 +715,7 @@ function GrillaDeBuilds({
           rolNombre={rolDe(build)}
           carpetaNombre={carpetaDe(build)}
           destinos={destinosDe(build)}
+          creandose={esProvisional(build.id)}
           fantasma={suya?.id === build.id}
           onSobre={() => marcarDestino(build.id)}
           onMover={(destino) => onMoverA(build.id, destino)}
@@ -778,6 +780,7 @@ function FilaRaiz({
  */
 function FilaCarpeta({
   folder,
+  creandose,
   nivel,
   abierta,
   seleccionada,
@@ -799,6 +802,8 @@ function FilaCarpeta({
   onBorrar,
 }: {
   folder: BuildFolder;
+  /** Todavía no existe en la base: sus acciones no tienen a qué apuntar. */
+  creandose: boolean;
   nivel: number;
   abierta: boolean;
   seleccionada: boolean;
@@ -877,6 +882,9 @@ function FilaCarpeta({
         )}
       </button>
 
+      {creandose ? (
+        <span className="shrink-0 pr-2 text-[11px] text-muted">Creando…</span>
+      ) : (
       <div className="flex shrink-0 items-center opacity-0 focus-within:opacity-100 group-hover:opacity-100">
         <button
           type="button"
@@ -926,6 +934,7 @@ function FilaCarpeta({
           <Trash2 size={13} aria-hidden />
         </button>
       </div>
+      )}
     </div>
   );
 }
@@ -1002,6 +1011,7 @@ function ColorDeCarpeta({
  */
 function TarjetaBuild({
   build,
+  creandose,
   color,
   rolNombre,
   carpetaNombre,
@@ -1013,6 +1023,8 @@ function TarjetaBuild({
   onBorrar,
 }: {
   build: Build;
+  /** Todavía no existe en la base: sus acciones no tienen a qué apuntar. */
+  creandose: boolean;
   /** Ya resuelto por herencia: propio, o el de su carpeta. */
   color: string | null;
   rolNombre: string | undefined;
@@ -1122,6 +1134,10 @@ function TarjetaBuild({
       )}
 
       <div className="mt-auto flex items-center gap-1 pt-1">
+        {creandose && (
+          <span className="flex-1 text-center text-xs opacity-70">Creando…</span>
+        )}
+        {!creandose && (
         <button
           type="button"
           onClick={onEditar}
@@ -1131,11 +1147,15 @@ function TarjetaBuild({
         >
           Editar
         </button>
-        <MoverA
-          etiqueta={`Mover ${build.name} a otra carpeta`}
-          destinos={destinos}
-          onMover={onMover}
-        />
+        )}
+        {!creandose && (
+          <MoverA
+            etiqueta={`Mover ${build.name} a otra carpeta`}
+            destinos={destinos}
+            onMover={onMover}
+          />
+        )}
+        {!creandose && (
         <button
           type="button"
           onClick={onBorrar}
@@ -1146,6 +1166,7 @@ function TarjetaBuild({
         >
           <Trash2 size={14} aria-hidden />
         </button>
+        )}
       </div>
     </div>
   );

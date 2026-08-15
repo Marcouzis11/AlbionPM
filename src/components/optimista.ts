@@ -161,5 +161,20 @@ export function useOptimista<T extends ConId>(delServidor: T[]) {
 
 /** Un identificador que solo vive hasta que el servidor devuelve el de verdad. */
 export function idProvisional(): string {
-  return `provisional-${Math.random().toString(36).slice(2)}`;
+  return `${PREFIJO}${Math.random().toString(36).slice(2)}`;
+}
+
+const PREFIJO = "provisional-";
+
+/**
+ * ¿Este identificador es de algo que todavía se está creando?
+ *
+ * Sirve para apagar las acciones de una fila recién creada. Mientras el
+ * servidor no conteste, su identificador no existe en la base: pedirle que
+ * cambie de color no cambia nada y no falla, simplemente no encuentra ninguna
+ * fila. La interfaz tiene que decir «esperá» en vez de aceptar clicks que se
+ * pierden.
+ */
+export function esProvisional(id: string): boolean {
+  return id.startsWith(PREFIJO);
 }
