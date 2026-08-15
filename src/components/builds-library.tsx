@@ -833,19 +833,21 @@ function TarjetaBuild({
       {...zona.props}
       {...propsDeArrastre({ tipo: "build", id: build.id, origen: build.folder_id })}
       style={estilo}
-      className={`flex cursor-grab flex-col gap-2 rounded-xl border p-2.5 transition-shadow active:cursor-grabbing ${
+      className={`flex cursor-grab flex-col gap-2 rounded-xl border p-3 transition-shadow active:cursor-grabbing ${
         conColor ? "border-current/25" : "border-border bg-surface"
       } ${zona.encima ? "ring-2 ring-accent" : ""}`}
     >
-      <div className="flex gap-3">
+      <div className="flex gap-2.5">
         {/* El equipo acomodado como el panel de personaje del juego. Quien
             juega reconoce la pieza por su lugar, sin leer ninguna etiqueta, y
             los huecos vacíos del panel original se respetan por lo mismo.
 
-            Sin separación entre casilleros: el ícono del juego YA viene con su
-            propio marco y su propio aire adentro, así que cualquier hueco extra
-            se suma al que la imagen ya trae y los deja flotando sueltos. */}
-        <div className="grid w-[6.75rem] shrink-0 grid-cols-3">
+            Los casilleros no tienen separación Y ADEMÁS cada ícono se agranda
+            un 12% dentro del suyo. El ícono del juego viene con bastante aire
+            transparente alrededor: sin invadirlo, dos armas contiguas se ven
+            separadas por un dedo aunque los casilleros estén pegados. Como lo
+            que se invade es transparente, no se pisa nada dibujado. */}
+        <div className="grid w-[10.5rem] shrink-0 grid-cols-3">
           {DISPOSICION_EQUIPO.flat().map((slot, indice) =>
             slot === null ? (
               <span key={`hueco-${indice}`} aria-hidden />
@@ -853,14 +855,14 @@ function TarjetaBuild({
               <ItemIcon
                 key={slot}
                 item={build.items[slot]}
-                size={72}
-                className="aspect-square w-full"
+                size={96}
+                className="aspect-square w-full scale-[1.12]"
               />
             ) : (
               <span
                 key={slot}
                 title={SIGLAS[slot]}
-                className="m-0.5 flex aspect-square items-center justify-center rounded border border-dashed border-current/30 text-[8px] leading-none opacity-60"
+                className="m-1 flex aspect-square items-center justify-center rounded border border-dashed border-current/30 text-[9px] leading-none opacity-60"
               >
                 {SIGLAS[slot]}
               </span>
@@ -870,7 +872,10 @@ function TarjetaBuild({
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="min-w-0">
-            <p className="truncate font-medium" title={build.name}>
+            {/* Dos líneas en vez de una recortada: el nombre usa el alto, que
+                sobra, en lugar de reclamar ancho, que es lo que necesitan los
+                íconos. */}
+            <p className="line-clamp-2 text-sm font-medium leading-tight" title={build.name}>
               {build.name}
             </p>
             <p className={`truncate text-xs ${conColor ? "opacity-75" : "text-muted"}`}>
