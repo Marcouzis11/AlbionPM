@@ -104,7 +104,7 @@ export function SelectorDeBuild({
 
         {propias.length > 0 && (
           <div
-            className="grid grid-cols-2 gap-2 py-1"
+            className="grid grid-cols-3 gap-1.5 py-1"
             style={{ marginLeft: nivel * 14 + 6 }}
           >
             {propias.map((build) => (
@@ -153,7 +153,7 @@ export function SelectorDeBuild({
         <Flotante
           ancla={boton}
           onCerrar={() => setAbierto(false)}
-          className="flex max-h-[30rem] w-[27rem] flex-col p-2"
+          className="flex max-h-[26rem] w-96 flex-col p-2"
         >
           <div className="relative shrink-0">
             <Search
@@ -188,7 +188,7 @@ export function SelectorDeBuild({
                   Ninguna build se llama así.
                 </p>
               ) : (
-                <div className="grid grid-cols-2 gap-2 py-1">
+                <div className="grid grid-cols-3 gap-1.5 py-1">
                   {resultados.map((build) => (
                     <Tarjeta
                       key={build.id}
@@ -240,11 +240,11 @@ function Tarjeta({
       title={build.name}
       onClick={onElegir}
       style={estilo}
-      className={`flex flex-col gap-2 rounded-xl border p-2.5 text-left ${
+      className={`flex flex-col gap-1 rounded-lg border p-1.5 text-left ${
         color ? "border-current/25" : "border-border bg-surface"
       } ${elegida ? "ring-2 ring-accent" : ""}`}
     >
-      <span className="block truncate text-sm font-medium leading-tight">
+      <span className="block truncate text-[11px] font-medium leading-tight">
         {build.name}
       </span>
 
@@ -263,7 +263,7 @@ function Tarjeta({
             <span
               key={slot}
               aria-hidden
-              className="m-1 aspect-square rounded border border-dashed border-current/30"
+              className="m-px aspect-square rounded-sm border border-dashed border-current/25"
             />
           ),
         )}
