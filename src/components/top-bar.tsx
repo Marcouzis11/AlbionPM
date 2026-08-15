@@ -142,6 +142,10 @@ function ItemNav({
     return (
       <Link
         href={href}
+        // Se trae la sección antes de que la toques. Son tres pantallas fijas
+        // y chicas: adelantarlas cuesta poco y descuenta un viaje entero del
+        // momento en que de verdad importa.
+        prefetch
         className={clases}
         aria-label={etiqueta}
         aria-current={activo ? "page" : undefined}
