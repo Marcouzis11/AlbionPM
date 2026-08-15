@@ -241,10 +241,38 @@ body {
     print-color-adjust: exact;
   }
 
-  /* Un grupo partido entre dos hojas obliga a dar vuelta la página para saber
-     quién más va con vos. */
+  /* Lo que NO se puede partir es una fila: media persona arriba y media abajo
+     no se lee. Un grupo entero sí se puede partir, y de hecho tiene que poder:
+     son veinte personas y no entran en una hoja. Pedirle que no se parta lo
+     empujaba entero a la hoja siguiente y el navegador le cortaba lo que
+     sobraba, que es exactamente lo que se veía cortado. */
   section {
+    break-inside: auto;
+  }
+
+  li,
+  tr {
     break-inside: avoid;
+  }
+
+  /* En pantalla, lo que se sale se alcanza con el scroll. En papel no hay
+     adónde ir a buscarlo: recortar es perderlo. */
+  [class*="overflow-"] {
+    overflow: visible !important;
+  }
+
+  /* Y por lo mismo, ningún nombre se corta con puntos suspensivos: en pantalla
+     el nombre completo se ve pasando el mouse, en papel no. */
+  .truncate {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  /* Los encabezados de grupo se repiten arriba de cada hoja mientras el grupo
+     sigue, para no tener que volver atrás a ver de quién es la lista. */
+  section > header {
+    break-after: avoid;
   }
 
   a[href]::after {

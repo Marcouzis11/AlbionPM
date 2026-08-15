@@ -417,7 +417,7 @@ function GrupoCompleto({
                     item={slot.build.items[pieza]}
                     name={SLOT_LABELS[pieza]}
                     size={64}
-                    className="size-8"
+                    className="size-8 print:size-6"
                   />
                 ) : null,
               )}
