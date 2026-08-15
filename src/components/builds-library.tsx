@@ -606,15 +606,28 @@ function GrillaDeBuilds({
    * lista nueva, esta se aplica encima; y si el conjunto cambió —alguien agregó
    * o movió una build— deja de coincidir y se descarta sola.
    */
-  const [ordenSoltado, setOrdenSoltado] = useState<string[] | null>(null);
+  const [ordenSoltado, setOrdenSoltado] = useState<{
+    /** El orden nuevo, por identificador. */
+    nuevo: string[];
+    /** Y cómo venía del servidor cuando lo soltaste. */
+    antes: string[];
+  } | null>(null);
 
   const ordenable = carpeta !== undefined;
   /** La lista tal como se muestra: la del servidor, o la que soltaste recién. */
   const mostradas = useMemo(() => {
     if (!ordenSoltado) return propias;
+
+    // Si el servidor ya manda un orden distinto del que había cuando soltaste,
+    // se enteró: manda él. Soltar esto por tiempo no sirve, porque
+    // `router.refresh()` no espera a nada.
+    const delServidor = propias.map((b) => b.id);
+    const cambio = delServidor.some((id, i) => id !== ordenSoltado.antes[i]);
+    if (cambio || delServidor.length !== ordenSoltado.antes.length) return propias;
+
     const porId = new Map(propias.map((b) => [b.id, b]));
     const armado: Build[] = [];
-    for (const id of ordenSoltado) {
+    for (const id of ordenSoltado.nuevo) {
       const build = porId.get(id);
       if (build) armado.push(build);
     }
@@ -669,7 +682,10 @@ function GrillaDeBuilds({
     } else if (previsualizado !== mostradas) {
       // Se fija primero lo que ya estabas viendo, y recién después se avisa al
       // servidor. Al revés, la pantalla parpadea entre los dos órdenes.
-      setOrdenSoltado(previsualizado.map((b) => b.id));
+      setOrdenSoltado({
+        nuevo: previsualizado.map((b) => b.id),
+        antes: propias.map((b) => b.id),
+      });
       onReordenar(previsualizado);
     }
   }

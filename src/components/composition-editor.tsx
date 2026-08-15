@@ -84,7 +84,13 @@ export function CompositionEditor({
   /** El intercambio ya soltado, mientras el servidor lo confirma. Sin esto las
       dos filas vuelven a su contenido viejo al soltar y recién después cambian:
       se ve el salto de ida y vuelta. */
-  const [soltado, setSoltado] = useState<{ a: string; b: string } | null>(null);
+  const [soltado, setSoltado] = useState<{
+    a: string;
+    b: string;
+    /** Qué build tenía cada una antes: cuando cambia, el servidor ya se enteró. */
+    antesA: string | null;
+    antesB: string | null;
+  } | null>(null);
 
   /**
    * Los cambios de una fila que todavía no confirmó el servidor.
@@ -94,13 +100,13 @@ export function CompositionEditor({
    * respuesta: parecía que el click no había hecho nada. Acá se anota lo que
    * elegiste y se pinta encima mientras tanto.
    */
-  const [pendientes, setPendientes] = useState<Map<string, Partial<CompSlot>>>(
-    () => new Map(),
-  );
-
-  // Cuál fue el último cambio de cada fila. Sin esto, una respuesta lenta que
-  // llega después de un cambio más nuevo borraría el más nuevo de la pantalla.
-  const ultimo = useRef(new Map<string, number>());
+  // Junto a cada cambio se guarda cómo estaba el dato ANTES. Mientras el
+  // servidor siga mandando ese valor viejo, todavía no se enteró y se muestra
+  // el nuestro; cuando manda algo distinto, manda él. Soltarlo por tiempo no
+  // sirve: `router.refresh()` no espera a nada, así que siempre hay carrera.
+  const [pendientes, setPendientes] = useState<
+    Map<string, { parche: Partial<CompSlot>; antes: Partial<CompSlot> }>
+  >(() => new Map());
 
   const slotsPorId = useMemo(
     () =>
@@ -113,10 +119,17 @@ export function CompositionEditor({
   function contenidoDe(slot: CompSlot): CompSlot {
     // Mientras arrastrás manda lo que estás por hacer; al soltar, lo que ya
     // hiciste. Las dos son el mismo intercambio de a dos filas.
+    const intercambioHecho =
+      soltado &&
+      slotsPorId.get(soltado.a)?.build_id === soltado.antesA &&
+      slotsPorId.get(soltado.b)?.build_id === soltado.antesB
+        ? soltado
+        : null;
+
     const par =
       arrastrado?.tipo === "lugar" && sobre && arrastrado.id !== sobre
         ? { a: arrastrado.id, b: sobre }
-        : soltado;
+        : intercambioHecho;
 
     let base = slot;
     if (par) {
@@ -125,64 +138,56 @@ export function CompositionEditor({
     }
 
     const pendiente = pendientes.get(base.id);
-    return pendiente ? { ...base, ...pendiente } : base;
+    if (!pendiente) return base;
+
+    const claves = Object.keys(pendiente.parche) as (keyof CompSlot)[];
+    const yaLlego = claves.some((clave) => base[clave] !== pendiente.antes[clave]);
+    return yaLlego ? base : { ...base, ...pendiente.parche };
+  }
+
+  function anotar(id: string, parche: Partial<CompSlot>) {
+    const actual = slotsPorId.get(id);
+    const antes: Partial<CompSlot> = {};
+    if (actual) {
+      for (const clave of Object.keys(parche) as (keyof CompSlot)[]) {
+        // @ts-expect-error las claves salen del mismo objeto, coinciden de a pares
+        antes[clave] = actual[clave];
+      }
+    }
+    setPendientes((previo) => new Map(previo).set(id, { parche, antes }));
   }
 
   /** Escribe un cambio de fila mostrándolo de una, sin esperar al servidor. */
   function actualizarSlot(id: string, patch: Partial<CompSlot>) {
-    const numero = (ultimo.current.get(id) ?? 0) + 1;
-    ultimo.current.set(id, numero);
-
-    setPendientes((previo) => {
-      const siguiente = new Map(previo);
-      siguiente.set(id, { ...previo.get(id), ...patch });
-      return siguiente;
-    });
-
+    anotar(id, patch);
     startTransition(async () => {
       await updateSlot(id, patch);
       router.refresh();
-      if (ultimo.current.get(id) !== numero) return;
-      setPendientes((previo) => {
-        const siguiente = new Map(previo);
-        siguiente.delete(id);
-        return siguiente;
-      });
     });
   }
 
   /** La corona, también de una: es un click y tiene que verse como tal. */
   function ponerCorona(grupo: CompGroup, slotId: string) {
-    setPendientes((previo) => {
-      const siguiente = new Map(previo);
-      for (const s of grupo.slots) {
-        siguiente.set(s.id, { ...previo.get(s.id), is_leader: s.id === slotId });
-      }
-      return siguiente;
-    });
+    // Cambia DOS filas, la que la recibe y la que la pierde, así que se anotan
+    // todas las del grupo.
+    for (const s of grupo.slots) anotar(s.id, { is_leader: s.id === slotId });
 
     startTransition(async () => {
       await setLeader(grupo.id, slotId);
       router.refresh();
-      setPendientes((previo) => {
-        const siguiente = new Map(previo);
-        for (const s of grupo.slots) {
-          const resto = { ...previo.get(s.id) };
-          delete resto.is_leader;
-          if (Object.keys(resto).length === 0) siguiente.delete(s.id);
-          else siguiente.set(s.id, resto);
-        }
-        return siguiente;
-      });
     });
   }
 
   function intercambiar(a: string, b: string) {
-    setSoltado({ a, b });
+    setSoltado({
+      a,
+      b,
+      antesA: slotsPorId.get(a)?.build_id ?? null,
+      antesB: slotsPorId.get(b)?.build_id ?? null,
+    });
     startTransition(async () => {
       await swapSlots(a, b);
       router.refresh();
-      setSoltado(null);
     });
   }
 

@@ -1,32 +1,39 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 /**
  * Mostrar los cambios antes de que el servidor los confirme.
  *
- * Toda escritura de esta aplicación sigue el mismo camino: se llama a una
- * acción del servidor y después se pide de nuevo la pantalla. Entre esas dos
- * cosas hay un viaje de red, y durante ese viaje la interfaz seguía mostrando
- * los datos viejos: elegías un color y no pasaba nada, creabas una carpeta y no
- * aparecía, movías una composición y se quedaba donde estaba. La acción se
- * sentía rota aunque estuviera funcionando.
+ * Toda escritura de esta aplicación llama a una acción y después vuelve a pedir
+ * la pantalla. Entre esas dos cosas hay un viaje de red, y durante ese viaje la
+ * interfaz mostraba los datos viejos: elegías un color y no pasaba nada, movías
+ * una composición y se quedaba donde estaba.
  *
- * Este enganche guarda lo que acabás de hacer y lo pinta encima de lo que llegó
- * del servidor, hasta que el servidor lo confirma. No reemplaza la escritura:
- * la acompaña.
+ * ## Por qué no se suelta lo pendiente "cuando termina"
  *
- * ## Lo que resuelve y no se ve
+ * La versión anterior soltaba el estado pendiente después de llamar a
+ * `router.refresh()`. Pero `refresh()` no devuelve una promesa: dispara el
+ * pedido y sigue de largo. Así que lo pendiente se soltaba enseguida, la
+ * pantalla volvía al dato viejo, y recién cuando llegaba el refresco aparecía
+ * el cambio. Eso es exactamente el salto de ida y vuelta que se buscaba evitar,
+ * y ninguna cantidad de esperas o temporizadores lo arregla bien: siempre hay
+ * una carrera.
  *
- * - **Respuestas que llegan tarde.** Se anota el número de cambio de cada
- *   elemento. Si cambiás dos veces seguidas, la respuesta de la primera ya no
- *   borra lo que mostró la segunda.
+ * Acá no se suelta por tiempo sino por evidencia. Junto a cada cambio se guarda
+ * cómo estaba el dato ANTES. Mientras el servidor siga mandando ese valor
+ * viejo, es que todavía no se enteró y se sigue mostrando el nuestro. En cuanto
+ * manda algo distinto, ya se enteró y manda él. No hay carrera posible: el
+ * cambio se ve una sola vez.
+ *
+ * ## Lo demás que resuelve
+ *
  * - **Altas sin identificador.** Al crear algo todavía no hay `id`, así que se
- *   inventa uno provisional. Cuando el servidor contesta se descarta el
- *   provisional y queda el de verdad, que ya viene en los datos nuevos.
- * - **Errores.** Si la acción devuelve un error, lo que se había pintado se
- *   descarta y se avisa. Sin esto la pantalla mentiría hasta que recargues.
+ *   inventa uno provisional y se recuerda qué identificadores existían. El
+ *   provisional se va en cuanto aparece uno que no estaba.
+ * - **Errores.** Si la acción falla, lo pintado se descarta y se avisa. Sin
+ *   esto la pantalla mentiría hasta recargar.
  */
 
 type ConId = { id: string };
@@ -34,53 +41,56 @@ type ConId = { id: string };
 /** Lo que devuelven las acciones de este proyecto cuando algo sale mal. */
 type Resultado = { error?: string } | void | undefined;
 
+type Pendiente<T> = {
+  parche: Partial<T>;
+  /** Los mismos campos, como los tenía el servidor cuando se anotó el cambio. */
+  antes: Partial<T>;
+};
+
+type Alta<T> = {
+  provisional: T;
+  /** Los identificadores que existían al crear. */
+  previos: Set<string>;
+};
+
 export function useOptimista<T extends ConId>(delServidor: T[]) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
-  const [parches, setParches] = useState<Map<string, Partial<T>>>(() => new Map());
-  const [agregados, setAgregados] = useState<T[]>([]);
+  const [parches, setParches] = useState<Map<string, Pendiente<T>>>(() => new Map());
+  const [altas, setAltas] = useState<Alta<T>[]>([]);
   const [quitados, setQuitados] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
 
-  const ultimo = useRef(new Map<string, number>());
-
-  /** Los datos del servidor con lo pendiente aplicado encima. */
+  /** Los datos del servidor con lo que todavía no confirmó aplicado encima. */
   const lista = useMemo(() => {
-    const conocidos = new Set(delServidor.map((x) => x.id));
     const base = delServidor
       .filter((x) => !quitados.has(x.id))
       .map((x) => {
-        const parche = parches.get(x.id);
-        return parche ? { ...x, ...parche } : x;
+        const pendiente = parches.get(x.id);
+        if (!pendiente) return x;
+
+        // Si el servidor ya cambió alguno de los campos que tocamos, se entiende
+        // que llegó la novedad y su versión manda.
+        const claves = Object.keys(pendiente.parche) as (keyof T)[];
+        const yaLlego = claves.some((clave) => x[clave] !== pendiente.antes[clave]);
+        return yaLlego ? x : { ...x, ...pendiente.parche };
       });
 
-    // Los provisionales se caen solos en cuanto el servidor devuelve el real.
-    return [...base, ...agregados.filter((a) => !conocidos.has(a.id))];
-  }, [delServidor, parches, agregados, quitados]);
+    const enElServidor = new Set(delServidor.map((x) => x.id));
+    const provisionales = altas
+      .filter((alta) => {
+        // Mientras no aparezca ningún identificador nuevo, el alta sigue en
+        // viaje y su provisional se muestra.
+        for (const id of enElServidor) if (!alta.previos.has(id)) return false;
+        return true;
+      })
+      .map((alta) => alta.provisional);
 
-  function limpiarParche(id: string) {
-    setParches((previo) => {
-      const siguiente = new Map(previo);
-      siguiente.delete(id);
-      return siguiente;
-    });
-  }
+    return [...base, ...provisionales];
+  }, [delServidor, parches, altas, quitados]);
 
-  /**
-   * Corre la acción y suelta lo pendiente recién cuando termina.
-   *
-   * Todo pasa dentro de UNA transición: el pedido, la vuelta a pedir la
-   * pantalla y el soltar. React confirma las tres juntas, así que no hay ningún
-   * cuadro intermedio en el que lo pendiente ya se soltó pero los datos nuevos
-   * todavía no llegaron. Con dos transiciones separadas, ese cuadro existe y es
-   * exactamente el parpadeo que se quería sacar.
-   */
-  function correr(
-    accion: () => Promise<Resultado>,
-    alFallar: () => void,
-    alTerminar?: () => void,
-  ) {
+  function correr(accion: () => Promise<Resultado>, alFallar: () => void) {
     startTransition(async () => {
       const resultado = await accion();
       if (resultado && "error" in resultado && resultado.error) {
@@ -90,58 +100,63 @@ export function useOptimista<T extends ConId>(delServidor: T[]) {
       }
       setError(null);
       router.refresh();
-      alTerminar?.();
     });
   }
 
   /** Cambia algo que ya existe. */
   function editar(id: string, parche: Partial<T>, accion: () => Promise<Resultado>) {
-    const numero = (ultimo.current.get(id) ?? 0) + 1;
-    ultimo.current.set(id, numero);
+    const actual = delServidor.find((x) => x.id === id);
+    const antes: Partial<T> = {};
+    if (actual) {
+      for (const clave of Object.keys(parche) as (keyof T)[]) antes[clave] = actual[clave];
+    }
 
-    setParches((previo) => {
-      const siguiente = new Map(previo);
-      siguiente.set(id, { ...previo.get(id), ...parche });
-      return siguiente;
-    });
+    setParches((previo) => new Map(previo).set(id, { parche, antes }));
 
-    correr(accion, () => limpiarParche(id), () => {
-      // Si nadie escribió después, se suelta el parche. Si alguien escribió, el
-      // suyo manda y este ya no tiene nada que decir.
-      if (ultimo.current.get(id) === numero) limpiarParche(id);
-    });
+    correr(accion, () =>
+      setParches((previo) => {
+        const siguiente = new Map(previo);
+        siguiente.delete(id);
+        return siguiente;
+      }),
+    );
   }
 
   /**
-   * Crea algo. `provisional` es cómo se va a ver mientras tanto; su `id` no
-   * existe en la base, así que no puede usarse para nada más que mostrarlo.
+   * Crea algo. `provisional` es cómo se ve mientras tanto; su `id` no existe en
+   * la base, así que no sirve para nada más que mostrarlo.
    */
   function agregar(provisional: T, accion: () => Promise<Resultado>) {
-    const sacar = () =>
-      setAgregados((previo) => previo.filter((a) => a.id !== provisional.id));
+    const alta: Alta<T> = {
+      provisional,
+      previos: new Set(delServidor.map((x) => x.id)),
+    };
+    setAltas((previo) => [...previo, alta]);
 
-    setAgregados((previo) => [...previo, provisional]);
-    correr(accion, sacar, sacar);
+    correr(accion, () =>
+      setAltas((previo) => previo.filter((a) => a.provisional.id !== provisional.id)),
+    );
   }
 
   /** Borra algo: desaparece de la lista mientras el servidor lo confirma. */
   function quitar(id: string, accion: () => Promise<Resultado>) {
     setQuitados((previo) => new Set(previo).add(id));
-    correr(accion, () => {
+
+    correr(accion, () =>
       setQuitados((previo) => {
         const siguiente = new Set(previo);
         siguiente.delete(id);
         return siguiente;
-      });
-    });
+      }),
+    );
   }
 
-  /** Para lo que no cambia una lista, pero igual tarda. */
+  /** Para lo que no cambia esta lista, pero igual tarda. */
   function hacer(accion: () => Promise<Resultado>) {
     correr(accion, () => {});
   }
 
-  return { lista, editar, agregar, quitar, hacer, error, limpiarError: () => setError(null) };
+  return { lista, editar, agregar, quitar, hacer, error };
 }
 
 /** Un identificador que solo vive hasta que el servidor devuelve el de verdad. */
