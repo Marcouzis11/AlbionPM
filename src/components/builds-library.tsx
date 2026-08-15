@@ -242,28 +242,6 @@ export function BuildsLibrary({
     });
   }
 
-  /**
-   * Soltar una build sobre otra.
-   *
-   * Si vienen de la misma carpeta es un reordenamiento: la arrastrada se mete
-   * en el lugar de la otra. Si viene de otra carpeta es una mudanza. La misma
-   * zona resuelve las dos porque para quien arrastra es el mismo gesto.
-   */
-  function soltarSobreBuild(arrastradaId: string, destino: Build) {
-    const arrastrada = builds.find((b) => b.id === arrastradaId);
-    if (!arrastrada || arrastrada.id === destino.id) return;
-
-    if (arrastrada.folder_id !== destino.folder_id) {
-      correr(() => moveBuild(arrastrada.id, destino.folder_id));
-      return;
-    }
-
-    const lista = buildsDe(destino.folder_id).filter((b) => b.id !== arrastrada.id);
-    const donde = lista.findIndex((b) => b.id === destino.id);
-    lista.splice(donde, 0, arrastrada);
-    correr(() => reorderBuilds(lista.map((b) => ({ id: b.id, position: b.position }))));
-  }
-
   function grillaDeBuilds(propias: Build[], conCarpeta: boolean) {
     return (
       <GrillaDeBuilds
@@ -546,15 +524,37 @@ function GrillaDeBuilds({
       ? propias.find((b) => b.id === arrastrado.id)
       : undefined;
 
-  /** El orden que quedaría si soltaras ahora. */
+  /**
+   * El orden que quedaría si soltaras ahora: las dos tarjetas intercambiadas.
+   *
+   * Intercambiar y no insertar, y no es un detalle de gusto. Insertando, la
+   * tarjeta que llevás se mete en el lugar de la otra y EMPUJA a todas las
+   * siguientes; entonces debajo del cursor queda una tarjeta distinta, que pasa
+   * a ser el nuevo destino, que vuelve a reordenar todo, y así sin parar. La
+   * grilla entra en un ciclo de reacomodos que se traba, sobre todo yendo hacia
+   * la izquierda, que es donde el empuje corre más elementos.
+   *
+   * Con un intercambio solo se mueven dos, y la que queda debajo del cursor es
+   * la que estás arrastrando, que no cuenta como destino. El resultado se
+   * queda quieto.
+   */
   const previsualizado = useMemo(() => {
     if (!suya || !sobre || sobre === suya.id) return propias;
-    const resto = propias.filter((b) => b.id !== suya.id);
-    const donde = resto.findIndex((b) => b.id === sobre);
-    if (donde < 0) return propias;
-    resto.splice(donde, 0, suya);
-    return resto;
+    const desde = propias.findIndex((b) => b.id === suya.id);
+    const hasta = propias.findIndex((b) => b.id === sobre);
+    if (desde < 0 || hasta < 0) return propias;
+
+    const copia = [...propias];
+    copia[desde] = propias[hasta];
+    copia[hasta] = propias[desde];
+    return copia;
   }, [propias, suya, sobre]);
+
+  /** El destino solo cambia al entrar en OTRA tarjeta, nunca en la propia. */
+  function marcarDestino(buildId: string) {
+    if (!ordenable || !suya || buildId === suya.id) return;
+    setSobre((previo) => (previo === buildId ? previo : buildId));
+  }
 
   function soltar() {
     const dato = arrastrado;
@@ -591,7 +591,7 @@ function GrillaDeBuilds({
           carpetaNombre={carpetaDe(build)}
           destinos={destinosDe(build)}
           fantasma={suya?.id === build.id}
-          onSobre={() => ordenable && setSobre(build.id)}
+          onSobre={() => marcarDestino(build.id)}
           onMover={(destino) => onMoverA(build.id, destino)}
           onEditar={() => onEditar(build)}
           onBorrar={() => onBorrar(build)}
@@ -916,7 +916,6 @@ function TarjetaBuild({
   return (
     <div
       onDragEnter={onSobre}
-      onDragOver={onSobre}
       {...propsDeArrastre({ tipo: "build", id: build.id, origen: build.folder_id })}
       style={estilo}
       className={`flex cursor-grab flex-col gap-2 rounded-xl border p-3 active:cursor-grabbing ${
