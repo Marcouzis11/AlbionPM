@@ -36,6 +36,7 @@ import { BuildPeek } from "@/components/build-peek";
 import { Desplegable } from "@/components/desplegable";
 import { SelectorDeBuild } from "@/components/selector-de-build";
 import { CompHeader } from "@/components/comp-header";
+import { esProvisional, idProvisional } from "@/components/optimista";
 import { colorEfectivo, type Build, type BuildFolder, type Role } from "@/lib/builds-shared";
 import { textoSobre } from "@/lib/color";
 import {
@@ -98,12 +99,109 @@ export function CompositionEditor({
     Map<string, { parche: Partial<CompSlot>; antes: Partial<CompSlot> }>
   >(() => new Map());
 
+  /**
+   * Lo que se agregó o se sacó y el servidor todavía no confirmó.
+   *
+   * Igual que en el resto: se muestra hecho y se suelta por evidencia, no por
+   * tiempo. Un lugar recién agregado se muestra mientras el grupo del servidor
+   * siga teniendo la cantidad que tenía; en cuanto crece, ya llegó el de verdad
+   * y el provisional sobra. Con `antes` contando también los que están en vuelo,
+   * apretar dos veces seguidas suma dos y no uno.
+   */
+  const [lugaresNuevos, setLugaresNuevos] = useState<
+    { grupo: string; slot: CompSlot; antes: number }[]
+  >([]);
+  const [lugaresFuera, setLugaresFuera] = useState<Set<string>>(() => new Set());
+  const [gruposNuevos, setGruposNuevos] = useState<{ grupo: CompGroup; antes: number }[]>([]);
+  const [gruposFuera, setGruposFuera] = useState<Set<string>>(() => new Set());
+
+  const grupos = useMemo(() => {
+    const base = composition.groups
+      .filter((g) => !gruposFuera.has(g.id))
+      .map((g) => {
+        const quedan = g.slots.filter((s) => !lugaresFuera.has(s.id));
+        const nuevos = lugaresNuevos
+          .filter((n) => n.grupo === g.id && g.slots.length <= n.antes)
+          .map((n) => n.slot);
+        if (nuevos.length === 0 && quedan.length === g.slots.length) return g;
+        return { ...g, slots: [...quedan, ...nuevos] };
+      });
+
+    const extra = gruposNuevos
+      .filter((n) => composition.groups.length <= n.antes)
+      .map((n) => n.grupo);
+
+    return [...base, ...extra];
+  }, [composition, lugaresNuevos, lugaresFuera, gruposNuevos, gruposFuera]);
+
+  function agregarLugar(grupoId: string) {
+    const enServidor = composition.groups.find((g) => g.id === grupoId)?.slots.length ?? 0;
+    const enVuelo = lugaresNuevos.filter((n) => n.grupo === grupoId).length;
+    const antes = enServidor + enVuelo;
+    if (antes >= MAX_POR_GRUPO) return;
+
+    setLugaresNuevos((previo) => [
+      ...previo,
+      {
+        grupo: grupoId,
+        antes,
+        slot: {
+          id: idProvisional(),
+          position: antes,
+          role_id: null,
+          build_id: null,
+          player_name: null,
+          is_leader: false,
+          notes: null,
+        },
+      },
+    ]);
+    startTransition(async () => {
+      await addSlot(grupoId);
+      router.refresh();
+    });
+  }
+
+  function quitarLugar(slotId: string) {
+    setLugaresFuera((previo) => new Set(previo).add(slotId));
+    startTransition(async () => {
+      await deleteSlot(slotId);
+      router.refresh();
+    });
+  }
+
+  function agregarGrupo() {
+    const antes = composition.groups.length + gruposNuevos.length;
+    setGruposNuevos((previo) => [
+      ...previo,
+      {
+        antes,
+        grupo: {
+          id: idProvisional(),
+          position: antes,
+          name: `Grupo ${antes + 1}`,
+          guild_name: null,
+          slots: [],
+        },
+      },
+    ]);
+    startTransition(async () => {
+      await addGroup(composition.id);
+      router.refresh();
+    });
+  }
+
+  function quitarGrupo(grupoId: string) {
+    setGruposFuera((previo) => new Set(previo).add(grupoId));
+    startTransition(async () => {
+      await deleteGroup(grupoId);
+      router.refresh();
+    });
+  }
+
   const slotsPorId = useMemo(
-    () =>
-      new Map(
-        composition.groups.flatMap((g) => g.slots.map((s) => [s.id, s] as const)),
-      ),
-    [composition],
+    () => new Map(grupos.flatMap((g) => g.slots.map((s) => [s.id, s] as const))),
+    [grupos],
   );
 
   function contenidoDe(slot: CompSlot): CompSlot {
@@ -256,9 +354,9 @@ export function CompositionEditor({
 
       {/* Dos grupos por fila desde pantallas grandes; uno en el resto. */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {composition.groups.map((group, indice) => {
-          const anterior = composition.groups[indice - 1];
-          const siguiente = composition.groups[indice + 1];
+        {grupos.map((group, indice) => {
+          const anterior = grupos[indice - 1];
+          const siguiente = grupos[indice + 1];
           return (
             <TarjetaGrupo
               key={group.id}
@@ -274,6 +372,9 @@ export function CompositionEditor({
               onIntercambiar={intercambiar}
               onActualizar={actualizarSlot}
               onCorona={(slotId) => ponerCorona(group, slotId)}
+              onAgregarLugar={() => agregarLugar(group.id)}
+              onQuitarLugar={quitarLugar}
+              onQuitarGrupo={() => quitarGrupo(group.id)}
               enVuelo={arrastrado?.tipo === "lugar" ? arrastrado.id : null}
               onAdelantar={
                 anterior && (() => run(() => swapGroups(group, anterior)))
@@ -289,7 +390,7 @@ export function CompositionEditor({
         {!bloqueado && (
           <button
             type="button"
-            onClick={() => run(() => addGroup(composition.id))}
+            onClick={agregarGrupo}
             className="flex min-h-24 items-center justify-center gap-2 rounded-xl border border-dashed border-border text-sm text-muted transition-colors hover:border-accent hover:text-text"
           >
             <Plus size={16} aria-hidden />
@@ -325,6 +426,9 @@ function TarjetaGrupo({
   onIntercambiar,
   onActualizar,
   onCorona,
+  onAgregarLugar,
+  onQuitarLugar,
+  onQuitarGrupo,
   enVuelo,
   onAdelantar,
   onAtrasar,
@@ -343,6 +447,9 @@ function TarjetaGrupo({
   onIntercambiar: (a: string, b: string) => void;
   onActualizar: (id: string, patch: Partial<CompSlot>) => void;
   onCorona: (slotId: string) => void;
+  onAgregarLugar: () => void;
+  onQuitarLugar: (slotId: string) => void;
+  onQuitarGrupo: () => void;
   /** El lugar que se está arrastrando, para mostrarlo apagado. */
   enVuelo: string | null;
   /** `undefined` cuando ya es el primero o el último. */
@@ -432,7 +539,7 @@ function TarjetaGrupo({
             </button>
             <button
               type="button"
-              onClick={() => onRun(() => deleteGroup(group.id))}
+              onClick={onQuitarGrupo}
               aria-label={`Borrar ${group.name ?? "grupo"}`}
               className="flex size-8 items-center justify-center rounded text-muted transition-colors hover:text-danger"
             >
@@ -471,6 +578,8 @@ function TarjetaGrupo({
               onIntercambiar={onIntercambiar}
               onActualizar={onActualizar}
               onCorona={onCorona}
+              onQuitar={() => onQuitarLugar(slot.id)}
+              creandose={esProvisional(slot.id)}
               build={build}
               estilo={estilo}
               pintada={pintada}
@@ -478,7 +587,6 @@ function TarjetaGrupo({
               builds={builds}
               roles={roles}
               bloqueado={bloqueado}
-              onRun={onRun}
             />
           );
         })}
@@ -487,7 +595,7 @@ function TarjetaGrupo({
       {!bloqueado && group.slots.length < MAX_POR_GRUPO && (
         <button
           type="button"
-          onClick={() => onRun(() => addSlot(group.id))}
+          onClick={onAgregarLugar}
           className="flex h-10 items-center gap-2 rounded-b-xl px-3 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-text"
         >
           <Plus size={15} aria-hidden />
@@ -515,6 +623,8 @@ function SlotFila({
   onIntercambiar,
   onActualizar,
   onCorona,
+  onQuitar,
+  creandose,
   build,
   estilo,
   pintada,
@@ -522,7 +632,6 @@ function SlotFila({
   builds,
   roles,
   bloqueado,
-  onRun,
 }: {
   slot: CompSlot;
   /** Lo que se muestra: durante un arrastre puede ser el de otra fila. */
@@ -530,6 +639,9 @@ function SlotFila({
   folders: BuildFolder[];
   apagada: boolean;
   onSobre: (slotId: string | null) => void;
+  onQuitar: () => void;
+  /** Todavía no existe en la base: sus controles no tienen a qué apuntar. */
+  creandose: boolean;
   onIntercambiar: (a: string, b: string) => void;
   onActualizar: (id: string, patch: Partial<CompSlot>) => void;
   onCorona: (slotId: string) => void;
@@ -540,7 +652,6 @@ function SlotFila({
   builds: Build[];
   roles: Role[];
   bloqueado: boolean;
-  onRun: (fn: () => Promise<unknown>) => void;
 }) {
   const zona = useZonaDeSoltar(
     (dato) => dato.tipo === "lugar" && dato.id !== slot.id,
@@ -560,7 +671,7 @@ function SlotFila({
       }}
       style={estilo}
       className={`flex items-center gap-1.5 px-1 py-1 ${
-        apagada ? "opacity-40" : ""
+        apagada || creandose ? "opacity-40" : ""
       } ${zona.encima ? "ring-2 ring-inset ring-accent" : ""}`}
     >
       {!bloqueado && (
@@ -584,7 +695,7 @@ function SlotFila({
         title={slot.is_leader ? "Tiene la corona" : "Darle la corona"}
         aria-label={slot.is_leader ? "Tiene la corona" : "Darle la corona"}
         aria-pressed={slot.is_leader}
-        disabled={bloqueado || slot.is_leader}
+        disabled={bloqueado || creandose || slot.is_leader}
         onClick={() => onCorona(slot.id)}
         className={`flex size-7 shrink-0 items-center justify-center rounded ${
           slot.is_leader
@@ -613,7 +724,7 @@ function SlotFila({
         builds={builds}
         folders={folders}
         onChange={(id) => onActualizar(slot.id, { build_id: id })}
-        disabled={bloqueado}
+        disabled={bloqueado || creandose}
         className="h-8 w-24 shrink-0 sm:w-36"
       />
 
@@ -623,7 +734,7 @@ function SlotFila({
         onChange={(v) => onActualizar(slot.id, { role_id: v || null })}
         etiqueta="Rol"
         vacio="Rol…"
-        disabled={bloqueado}
+        disabled={bloqueado || creandose}
         className="hidden h-8 w-24 shrink-0 sm:block"
       />
 
@@ -646,7 +757,7 @@ function SlotFila({
       {!bloqueado && (
         <button
           type="button"
-          onClick={() => onRun(() => deleteSlot(slot.id))}
+          onClick={onQuitar}
           aria-label="Quitar persona"
           className={`flex size-7 shrink-0 items-center justify-center rounded ${
             pintada ? "opacity-60 hover:opacity-100" : "text-muted hover:text-danger"
