@@ -499,7 +499,7 @@ function ContenidoAbierto({
       )}
 
       {/* Entran escalonadas: se ve que salieron de la carpeta que abriste. */}
-      <ul className="aparece-escalonado space-y-1">
+      <ul className="space-y-1">
         {compositions.map((comp) => (
           <li
             key={comp.id}

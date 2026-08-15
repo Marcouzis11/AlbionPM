@@ -258,7 +258,7 @@ function TarjetaGrupo({
   return (
     <section
       {...zona.props}
-      className={`flex flex-col rounded-xl border bg-surface transition-colors ${
+      className={`flex flex-col rounded-xl border bg-surface ${
         zona.encima ? "border-accent ring-2 ring-accent" : "border-border"
       }`}
     >
@@ -446,7 +446,7 @@ function SlotFila({
         evento.preventDefault();
       }}
       style={estilo}
-      className={`flex items-center gap-1.5 px-1 py-1 transition-opacity ${
+      className={`flex items-center gap-1.5 px-1 py-1 ${
         apagada ? "opacity-40" : ""
       } ${zona.encima ? "ring-2 ring-inset ring-accent" : ""}`}
     >

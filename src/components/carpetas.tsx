@@ -153,7 +153,7 @@ function Ficha({
           tiene que pesar: un filo de tres píxeles no dibuja nada. */}
       <span
         aria-hidden
-        className="absolute left-0 top-0 h-5 w-[46%] rounded-t-lg transition-opacity group-hover:opacity-90"
+        className="absolute left-0 top-0 h-5 w-[46%] rounded-t-lg group-hover:opacity-90"
         style={{ background: color }}
       />
 
@@ -161,7 +161,7 @@ function Ficha({
         type="button"
         onClick={onAlternar}
         aria-expanded={abierta}
-        className={`absolute inset-x-0 bottom-0 top-5 flex flex-col justify-between rounded-xl rounded-tl-none border p-3 text-left transition-colors ${
+        className={`absolute inset-x-0 bottom-0 top-5 flex flex-col justify-between rounded-xl rounded-tl-none border p-3 text-left ${
           zona.encima
             ? "border-accent border-dashed bg-accent/10 ring-2 ring-accent"
             : abierta

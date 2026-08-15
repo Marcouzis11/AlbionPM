@@ -580,7 +580,7 @@ function GrillaDeBuilds({
         // tarjeta a la de al lado.
         if (!evento.currentTarget.contains(evento.relatedTarget as Node)) setSobre(null);
       }}
-      className="aparece-escalonado grid gap-3 md:grid-cols-2 xl:grid-cols-3"
+      className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
     >
       {previsualizado.map((build) => (
         <TarjetaBuild
@@ -702,7 +702,7 @@ function FilaCarpeta({
       {...zona.props}
       {...propsDeArrastre({ tipo: "carpeta", id: folder.id, origen: folder.parent_id })}
       style={{ paddingLeft: nivel * 18 + 4 }}
-      className={`group flex min-h-9 items-center gap-1 rounded-lg pr-1 transition-colors ${
+      className={`group flex min-h-9 items-center gap-1 rounded-lg pr-1 ${
         zona.encima
           ? "bg-accent/15 ring-1 ring-accent"
           : seleccionada
@@ -719,9 +719,7 @@ function FilaCarpeta({
         <ChevronRight
           size={14}
           aria-hidden
-          className={`shrink-0 text-muted transition-transform duration-150 motion-reduce:transition-none ${
-            abierta ? "rotate-90" : ""
-          }`}
+          className={`shrink-0 text-muted ${abierta ? "rotate-90" : ""}`}
         />
         {/* El ícono lleva el color de la carpeta: es la única pista de que lo
             que hay adentro se va a pintar así. */}
@@ -921,7 +919,7 @@ function TarjetaBuild({
       onDragOver={onSobre}
       {...propsDeArrastre({ tipo: "build", id: build.id, origen: build.folder_id })}
       style={estilo}
-      className={`flex cursor-grab flex-col gap-2 rounded-xl border p-3 transition-[opacity,box-shadow] duration-150 active:cursor-grabbing ${
+      className={`flex cursor-grab flex-col gap-2 rounded-xl border p-3 active:cursor-grabbing ${
         conColor ? "border-current/25" : "border-border bg-surface"
       } ${fantasma ? "opacity-40 outline-2 outline-dashed outline-accent" : ""}`}
     >
@@ -950,7 +948,7 @@ function TarjetaBuild({
               <span
                 key={slot}
                 title={SIGLAS[slot]}
-                className="m-1 flex aspect-square items-center justify-center rounded border border-dashed border-current/30 text-[9px] leading-none opacity-60"
+                className="m-1 flex aspect-square items-center justify-center rounded border border-dashed border-current/45 text-[9px] font-semibold leading-none opacity-80"
               >
                 {SIGLAS[slot]}
               </span>
@@ -966,7 +964,7 @@ function TarjetaBuild({
             <p className="line-clamp-2 text-sm font-medium leading-tight" title={build.name}>
               {build.name}
             </p>
-            <p className={`truncate text-xs ${conColor ? "opacity-75" : "text-muted"}`}>
+            <p className={`truncate text-xs ${conColor ? "font-medium opacity-90" : "text-muted"}`}>
               {rolNombre ?? "Sin rol"}
               {carpetaNombre ? ` · ${carpetaNombre}` : ""}
             </p>
@@ -979,7 +977,7 @@ function TarjetaBuild({
                   key={tag}
                   className={`rounded-lg px-1.5 py-0.5 text-[11px] ${
                     conColor
-                      ? "border border-current/35 opacity-90"
+                      ? "border border-current/50 font-medium"
                       : "bg-surface-2 text-muted"
                   }`}
                 >
@@ -995,7 +993,7 @@ function TarjetaBuild({
           equipo entraba en una columna angosta y se cortaba a las cuatro
           palabras, con el resto de la tarjeta vacío. */}
       {nota && (
-        <p className={`text-xs leading-snug ${conColor ? "opacity-80" : "text-muted"}`}>
+        <p className={`text-xs font-medium leading-snug ${conColor ? "opacity-90" : "text-muted"}`}>
           {nota}
         </p>
       )}
