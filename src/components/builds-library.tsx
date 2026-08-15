@@ -518,10 +518,36 @@ function GrillaDeBuilds({
   const arrastrado = useArrastrado();
   const [sobre, setSobre] = useState<string | null>(null);
 
+  /**
+   * El orden que ya soltaste, mientras el servidor lo confirma.
+   *
+   * Sin esto, al soltar se borra la vista previa y las tarjetas vuelven al
+   * orden viejo hasta que llega la respuesta: se ve saltar todo, soltar, y
+   * recién ahí acomodarse. No es demora inevitable del servidor, es que la
+   * pantalla no se estaba quedando con lo que ya sabía.
+   *
+   * Se guardan los identificadores y no las builds. Cuando el servidor manda la
+   * lista nueva, esta se aplica encima; y si el conjunto cambió —alguien agregó
+   * o movió una build— deja de coincidir y se descarta sola.
+   */
+  const [ordenSoltado, setOrdenSoltado] = useState<string[] | null>(null);
+
   const ordenable = carpeta !== undefined;
+  /** La lista tal como se muestra: la del servidor, o la que soltaste recién. */
+  const mostradas = useMemo(() => {
+    if (!ordenSoltado) return propias;
+    const porId = new Map(propias.map((b) => [b.id, b]));
+    const armado: Build[] = [];
+    for (const id of ordenSoltado) {
+      const build = porId.get(id);
+      if (build) armado.push(build);
+    }
+    return armado.length === propias.length ? armado : propias;
+  }, [propias, ordenSoltado]);
+
   const suya =
     ordenable && arrastrado?.tipo === "build"
-      ? propias.find((b) => b.id === arrastrado.id)
+      ? mostradas.find((b) => b.id === arrastrado.id)
       : undefined;
 
   /**
@@ -539,16 +565,16 @@ function GrillaDeBuilds({
    * queda quieto.
    */
   const previsualizado = useMemo(() => {
-    if (!suya || !sobre || sobre === suya.id) return propias;
-    const desde = propias.findIndex((b) => b.id === suya.id);
-    const hasta = propias.findIndex((b) => b.id === sobre);
-    if (desde < 0 || hasta < 0) return propias;
+    if (!suya || !sobre || sobre === suya.id) return mostradas;
+    const desde = mostradas.findIndex((b) => b.id === suya.id);
+    const hasta = mostradas.findIndex((b) => b.id === sobre);
+    if (desde < 0 || hasta < 0) return mostradas;
 
-    const copia = [...propias];
-    copia[desde] = propias[hasta];
-    copia[hasta] = propias[desde];
+    const copia = [...mostradas];
+    copia[desde] = mostradas[hasta];
+    copia[hasta] = mostradas[desde];
     return copia;
-  }, [propias, suya, sobre]);
+  }, [mostradas, suya, sobre]);
 
   /** El destino solo cambia al entrar en OTRA tarjeta, nunca en la propia. */
   function marcarDestino(buildId: string) {
@@ -562,8 +588,14 @@ function GrillaDeBuilds({
     if (!ordenable || dato?.tipo !== "build") return;
 
     // De otra carpeta: se trae. De esta: se reordena con lo que ya se ve.
-    if (!propias.some((b) => b.id === dato.id)) onTraer(dato.id, carpeta);
-    else if (previsualizado !== propias) onReordenar(previsualizado);
+    if (!mostradas.some((b) => b.id === dato.id)) {
+      onTraer(dato.id, carpeta);
+    } else if (previsualizado !== mostradas) {
+      // Se fija primero lo que ya estabas viendo, y recién después se avisa al
+      // servidor. Al revés, la pantalla parpadea entre los dos órdenes.
+      setOrdenSoltado(previsualizado.map((b) => b.id));
+      onReordenar(previsualizado);
+    }
   }
 
   return (

@@ -82,6 +82,11 @@ export function CompositionEditor({
   const arrastrado = useArrastrado();
   const [sobre, setSobre] = useState<string | null>(null);
 
+  /** El intercambio ya soltado, mientras el servidor lo confirma. Sin esto las
+      dos filas vuelven a su contenido viejo al soltar y recién después cambian:
+      se ve el salto de ida y vuelta. */
+  const [soltado, setSoltado] = useState<{ a: string; b: string } | null>(null);
+
   const slotsPorId = useMemo(
     () =>
       new Map(
@@ -91,10 +96,26 @@ export function CompositionEditor({
   );
 
   function contenidoDe(slot: CompSlot): CompSlot {
-    if (arrastrado?.tipo !== "lugar" || !sobre || arrastrado.id === sobre) return slot;
-    if (slot.id === arrastrado.id) return slotsPorId.get(sobre) ?? slot;
-    if (slot.id === sobre) return slotsPorId.get(arrastrado.id) ?? slot;
+    // Mientras arrastrás manda lo que estás por hacer; al soltar, lo que ya
+    // hiciste. Las dos son el mismo intercambio de a dos filas.
+    const par =
+      arrastrado?.tipo === "lugar" && sobre && arrastrado.id !== sobre
+        ? { a: arrastrado.id, b: sobre }
+        : soltado;
+    if (!par) return slot;
+
+    if (slot.id === par.a) return slotsPorId.get(par.b) ?? slot;
+    if (slot.id === par.b) return slotsPorId.get(par.a) ?? slot;
     return slot;
+  }
+
+  function intercambiar(a: string, b: string) {
+    setSoltado({ a, b });
+    startTransition(async () => {
+      await swapSlots(a, b);
+      router.refresh();
+      setSoltado(null);
+    });
   }
 
   const confirmados = contarConfirmados(composition);
@@ -173,6 +194,7 @@ export function CompositionEditor({
               onRun={run}
               contenidoDe={contenidoDe}
               onSobre={setSobre}
+              onIntercambiar={intercambiar}
               enVuelo={arrastrado?.tipo === "lugar" ? arrastrado.id : null}
               onAdelantar={
                 anterior && (() => run(() => swapGroups(group, anterior)))
@@ -221,6 +243,7 @@ function TarjetaGrupo({
   onRun,
   contenidoDe,
   onSobre,
+  onIntercambiar,
   enVuelo,
   onAdelantar,
   onAtrasar,
@@ -236,6 +259,7 @@ function TarjetaGrupo({
   /** Qué mostrar en cada fila mientras hay un arrastre en curso. */
   contenidoDe: (slot: CompSlot) => CompSlot;
   onSobre: (slotId: string | null) => void;
+  onIntercambiar: (a: string, b: string) => void;
   /** El lugar que se está arrastrando, para mostrarlo apagado. */
   enVuelo: string | null;
   /** `undefined` cuando ya es el primero o el último. */
@@ -361,6 +385,7 @@ function TarjetaGrupo({
               folders={folders}
               apagada={enVuelo === slot.id}
               onSobre={onSobre}
+              onIntercambiar={onIntercambiar}
               grupoId={group.id}
               build={build}
               estilo={estilo}
@@ -403,6 +428,7 @@ function SlotFila({
   folders,
   apagada,
   onSobre,
+  onIntercambiar,
   grupoId,
   build,
   estilo,
@@ -419,6 +445,7 @@ function SlotFila({
   folders: BuildFolder[];
   apagada: boolean;
   onSobre: (slotId: string | null) => void;
+  onIntercambiar: (a: string, b: string) => void;
   grupoId: string;
   build: Build | undefined;
   estilo: React.CSSProperties | undefined;
@@ -433,7 +460,7 @@ function SlotFila({
     (dato) => dato.tipo === "lugar" && dato.id !== slot.id,
     (dato) => {
       onSobre(null);
-      onRun(() => swapSlots(dato.id, slot.id));
+      onIntercambiar(dato.id, slot.id);
     },
   );
 
