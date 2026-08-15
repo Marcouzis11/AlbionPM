@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import {
   addGroup,
@@ -81,16 +81,6 @@ export function CompositionEditor({
   const arrastrado = useArrastrado();
   const [sobre, setSobre] = useState<string | null>(null);
 
-  /** El intercambio ya soltado, mientras el servidor lo confirma. Sin esto las
-      dos filas vuelven a su contenido viejo al soltar y recién después cambian:
-      se ve el salto de ida y vuelta. */
-  const [soltado, setSoltado] = useState<{
-    a: string;
-    b: string;
-    /** Qué build tenía cada una antes: cuando cambia, el servidor ya se enteró. */
-    antesA: string | null;
-    antesB: string | null;
-  } | null>(null);
 
   /**
    * Los cambios de una fila que todavía no confirmó el servidor.
@@ -119,17 +109,13 @@ export function CompositionEditor({
   function contenidoDe(slot: CompSlot): CompSlot {
     // Mientras arrastrás manda lo que estás por hacer; al soltar, lo que ya
     // hiciste. Las dos son el mismo intercambio de a dos filas.
-    const intercambioHecho =
-      soltado &&
-      slotsPorId.get(soltado.a)?.build_id === soltado.antesA &&
-      slotsPorId.get(soltado.b)?.build_id === soltado.antesB
-        ? soltado
-        : null;
-
+    // Solo mientras el cursor está encima. Lo YA soltado no se resuelve acá:
+    // se anota como cambio de cada fila, igual que elegir una build, y lo
+    // suelta la misma comparación campo por campo que todo lo demás.
     const par =
       arrastrado?.tipo === "lugar" && sobre && arrastrado.id !== sobre
         ? { a: arrastrado.id, b: sobre }
-        : intercambioHecho;
+        : null;
 
     let base = slot;
     if (par) {
@@ -178,13 +164,31 @@ export function CompositionEditor({
     });
   }
 
+  /**
+   * Intercambia dos filas.
+   *
+   * No es un caso aparte: se anota en cada una lo que va a tener, con el mismo
+   * mecanismo que usa elegir una build. Antes esto tenía su propia detección de
+   * "el servidor ya se enteró" que solo miraba la build, así que con dos filas
+   * que compartían build no se enteraba nunca, y con cualquier otra diferencia
+   * se enteraba antes de tiempo: la fila volvía a su lugar y recién después
+   * cambiaba. Comparando campo por campo, como el resto, eso no pasa.
+   */
   function intercambiar(a: string, b: string) {
-    setSoltado({
-      a,
-      b,
-      antesA: slotsPorId.get(a)?.build_id ?? null,
-      antesB: slotsPorId.get(b)?.build_id ?? null,
+    const unaA = slotsPorId.get(a);
+    const unaB = slotsPorId.get(b);
+    if (!unaA || !unaB) return;
+
+    const contenido = (s: CompSlot) => ({
+      build_id: s.build_id,
+      role_id: s.role_id,
+      player_name: s.player_name,
+      notes: s.notes,
     });
+
+    anotar(a, contenido(unaB));
+    anotar(b, contenido(unaA));
+
     startTransition(async () => {
       await swapSlots(a, b);
       router.refresh();
