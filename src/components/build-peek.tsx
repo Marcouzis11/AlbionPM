@@ -96,7 +96,7 @@ export function BuildPeek({ build }: { build: Build | undefined }) {
                     }`}
                   >
                     {build.items[slot] ? (
-                      <ItemIcon item={build.items[slot]} size={72} className="w-full" />
+                      <ItemIcon item={build.items[slot]} size={72} className="h-auto w-full" />
                     ) : (
                       <span className="text-[9px] text-muted">
                         {SLOT_LABELS[slot].slice(0, 3)}

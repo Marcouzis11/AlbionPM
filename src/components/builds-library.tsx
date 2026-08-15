@@ -856,7 +856,7 @@ function TarjetaBuild({
                 key={slot}
                 item={build.items[slot]}
                 size={96}
-                className="aspect-square w-full scale-[1.12]"
+                className="h-auto w-full scale-[1.12]"
               />
             ) : (
               <span

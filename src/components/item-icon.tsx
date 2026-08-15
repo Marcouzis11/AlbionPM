@@ -110,7 +110,14 @@ export function ItemIcon({
     return (
       <span
         title={name ?? id}
-        style={{ width: size, height: size, fontSize: Math.max(8, size / 4.5) }}
+        // Un `span` no tiene tamaño propio, así que acá el estilo en línea hace
+        // falta. Se omite el alto y el ancho cuando quien lo usa mandó clases:
+        // en ese caso el tamaño lo decide la grilla, igual que con la imagen.
+        style={
+          className
+            ? { fontSize: Math.max(8, size / 4.5) }
+            : { width: size, height: size, fontSize: Math.max(8, size / 4.5) }
+        }
         className={`inline-flex items-center justify-center rounded border border-dashed border-border text-center leading-tight text-muted ${className ?? ""}`}
       >
         {id.replace(/^T\d_/, "").slice(0, 4)}
@@ -130,8 +137,14 @@ export function ItemIcon({
       decoding="async"
       draggable={false}
       onError={onError}
+      // El tamaño viaja en los atributos `width`/`height` y NO en un `style`
+      // en línea. Un estilo en línea le gana a cualquier clase, así que quien
+      // usara este ícono dentro de una grilla no podía pedirle que ocupara la
+      // celda: el alto quedaba clavado en `size` y las filas se estiraban a ese
+      // alto aunque la columna midiera la mitad. Los atributos, en cambio, son
+      // una sugerencia del navegador que cualquier clase puede sobrescribir, y
+      // encima le dan la proporción para reservar el lugar antes de cargar.
       className={`object-contain ${className ?? ""}`}
-      style={{ width: size, height: size }}
     />
   );
 }
