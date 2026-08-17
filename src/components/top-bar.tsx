@@ -1,6 +1,12 @@
 "use client";
 
-import { Calculator as CalculatorIcon, History, Shirt, Users } from "lucide-react";
+import {
+  Calculator as CalculatorIcon,
+  History,
+  Shirt,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -8,6 +14,7 @@ import { useState } from "react";
 import { signOut } from "@/app/actions/auth";
 import { Calculator } from "@/components/calculator";
 import { GameSwitcher } from "@/components/game-switcher";
+import { useHayNovedades } from "@/components/novedades-leidas";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { Game } from "@/lib/data/contents";
 import type { Theme } from "@/lib/theme";
@@ -32,13 +39,21 @@ type Props = {
 export function TopBar({ game, games, email, theme }: Props) {
   const pathname = usePathname();
   const [calcAbierta, setCalcAbierta] = useState(false);
+  const hayNovedades = useHayNovedades();
 
   const base = `/app/${game.slug}`;
 
   const secciones = [
-    { href: base, etiqueta: "Party Maker", icono: Users, exacto: false },
-    { href: `${base}/builds`, etiqueta: "Builds", icono: Shirt, exacto: false },
-    { href: `${base}/historial`, etiqueta: "Historial", icono: History, exacto: false },
+    { href: base, etiqueta: "Party Maker", icono: Users, aviso: false },
+    { href: `${base}/builds`, etiqueta: "Builds", icono: Shirt, aviso: false },
+    { href: `${base}/historial`, etiqueta: "Historial", icono: History, aviso: false },
+    {
+      href: `${base}/novedades`,
+      etiqueta: "Novedades",
+      icono: Sparkles,
+      // Un punto y no un número: lo que importa es «hay algo», no cuántas.
+      aviso: hayNovedades,
+    },
   ];
 
   /** Party Maker cubre también la pantalla de una composición abierta. */
@@ -69,6 +84,7 @@ export function TopBar({ game, games, email, theme }: Props) {
               activo={activa(seccion.href)}
               etiqueta={seccion.etiqueta}
               Icono={seccion.icono}
+              aviso={seccion.aviso}
             />
           ))}
 
@@ -114,12 +130,15 @@ function ItemNav({
   activo,
   etiqueta,
   Icono,
+  aviso = false,
 }: {
   href?: string;
   onClick?: () => void;
   activo: boolean;
   etiqueta: string;
   Icono: React.ComponentType<{ size?: number }>;
+  /** Hay algo sin leer detrás de este enlace. */
+  aviso?: boolean;
 }) {
   const clases = `relative flex h-11 items-center gap-2 rounded-lg px-2.5 text-sm transition-colors sm:px-3 ${
     activo ? "text-text" : "text-muted hover:bg-surface-2 hover:text-text"
@@ -127,8 +146,17 @@ function ItemNav({
 
   const contenido = (
     <>
-      <Icono size={17} />
+      <span className="relative flex">
+        <Icono size={17} />
+        {aviso && (
+          <span
+            aria-hidden
+            className="absolute -right-1 -top-1 size-2 rounded-full bg-accent ring-2 ring-surface"
+          />
+        )}
+      </span>
       <span className="hidden sm:inline">{etiqueta}</span>
+      {aviso && <span className="sr-only">(hay novedades sin leer)</span>}
       {activo && (
         <span
           aria-hidden
