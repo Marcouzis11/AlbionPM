@@ -149,6 +149,7 @@ export function PartyMaker({
       },
       panel: () => (
         <ContenidoAbierto
+          gameId={gameId}
           contentId={content.id}
           contentName={content.name}
           gameSlug={gameSlug}
@@ -587,6 +588,7 @@ function PaletaDeColores({ sugerido }: { sugerido: string }) {
 
 /** Lo que hay dentro de un contenido abierto: sus composiciones. */
 function ContenidoAbierto({
+  gameId,
   contentId,
   contentName,
   gameSlug,
@@ -596,6 +598,7 @@ function ContenidoAbierto({
   onBorrarComp,
   onDuplicar,
 }: {
+  gameId: string;
   contentId: string;
   contentName: string;
   gameSlug: string;
@@ -648,7 +651,7 @@ function ContenidoAbierto({
             </Link>
 
             <BotonExportar
-              obtener={() => exportarComposicion(comp.id)}
+              obtener={() => exportarComposicion(gameId, comp.id)}
               nombre={comp.name}
               etiqueta={`Exportar ${comp.name} con sus builds`}
               compacto

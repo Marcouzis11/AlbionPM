@@ -51,6 +51,14 @@ export const buildExportadaSchema = z.object({
   /** Única dentro del archivo. Es lo que usan los lugares para apuntarle. */
   ref: z.string().min(1).max(64),
   name: z.string().min(1).max(80),
+  /**
+   * El color que se VE, no el que está guardado.
+   *
+   * Una build sin color propio que hereda el de su carpeta se exporta con ese
+   * color ya resuelto. Del otro lado las carpetas son otras y todo cae en
+   * «Importados», así que una herencia no tendría de dónde colgarse: llegaría
+   * gris y quien la recibe vería algo distinto de lo que le mostraron.
+   */
   color: hexSchema.nullable().default(null),
   tags: z.array(z.string().max(40)).max(20).default([]),
   items: itemsSchema.default({}),

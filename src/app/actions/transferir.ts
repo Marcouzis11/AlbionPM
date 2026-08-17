@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { colorEfectivo, type BuildFolder } from "@/lib/builds-shared";
 import { createClient } from "@/lib/supabase/server";
 import {
   archivoSchema,
@@ -27,6 +28,29 @@ import {
 
 export type TransferState = { error?: string; mensaje?: string };
 
+/**
+ * Las carpetas del juego, para resolver de qué color se ve cada build.
+ *
+ * El color heredado no puede viajar como herencia: del otro lado las carpetas
+ * son otras, y todo lo importado cae en «Importados». Si se exportara el color
+ * propio a secas, una build que se ve azul porque su carpeta es azul llegaría
+ * gris, y quien la recibe vería algo distinto de lo que le mostraron.
+ *
+ * Así que la herencia se resuelve ACÁ, al exportar: lo que viaja es el color
+ * que se ve, ya convertido en color propio de la build.
+ */
+async function carpetasDelJuego(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  gameId: string,
+): Promise<BuildFolder[]> {
+  const { data } = await supabase
+    .from("build_folders")
+    .select("id, parent_id, name, color, position")
+    .eq("game_id", gameId);
+
+  return (data ?? []) as BuildFolder[];
+}
+
 function revalidarTodo() {
   revalidatePath("/app/[game]", "page");
   revalidatePath("/app/[game]/builds", "page");
@@ -39,22 +63,26 @@ function revalidarTodo() {
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export async function exportarComposicion(
+  gameId: string,
   id: string,
 ): Promise<{ archivo?: ArchivoComposicion; error?: string }> {
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("compositions")
-    .select(
-      `name, description, event_tz,
-       comp_groups ( position, name, guild_name,
-         comp_slots ( position, player_name, is_leader, notes,
-           roles ( name ),
-           builds ( id, name, color, tags, items, notes, roles ( name ),
-                    build_folders ( name ) ) ) )`,
-    )
-    .eq("id", id)
-    .maybeSingle();
+  const [{ data }, carpetas] = await Promise.all([
+    supabase
+      .from("compositions")
+      .select(
+        `name, description, event_tz,
+         comp_groups ( position, name, guild_name,
+           comp_slots ( position, player_name, is_leader, notes,
+             roles ( name ),
+             builds ( id, name, color, folder_id, tags, items, notes,
+                      roles ( name ), build_folders ( name ) ) ) )`,
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    carpetasDelJuego(supabase, gameId),
+  ]);
 
   if (!data) return { error: "Esa composición ya no existe." };
 
@@ -71,7 +99,11 @@ export async function exportarComposicion(
         builds.set(build.id, {
           ref: build.id,
           name: build.name,
-          color: build.color ?? null,
+          // El que se VE: propio, o el que hereda de su carpeta.
+          color: colorEfectivo(
+            { color: build.color ?? null, folder_id: build.folder_id ?? null },
+            carpetas,
+          ),
           tags: build.tags ?? [],
           items: build.items ?? {},
           notes: build.notes ?? null,
@@ -116,13 +148,18 @@ export async function exportarBuilds(
 
   let consulta = supabase
     .from("builds")
-    .select("id, name, color, tags, items, notes, roles ( name ), build_folders ( name )")
+    .select(
+      "id, name, color, folder_id, tags, items, notes, roles ( name ), build_folders ( name )",
+    )
     .eq("game_id", gameId)
     .order("position");
 
   if (folderId) consulta = consulta.eq("folder_id", folderId);
 
-  const { data, error } = await consulta;
+  const [{ data, error }, carpetas] = await Promise.all([
+    consulta,
+    carpetasDelJuego(supabase, gameId),
+  ]);
   if (error) return { error: error.message };
   if (!data || data.length === 0) return { error: "No hay builds para exportar." };
 
@@ -135,7 +172,10 @@ export async function exportarBuilds(
       builds: (data as any[]).map((build) => ({
         ref: build.id,
         name: build.name,
-        color: build.color ?? null,
+        color: colorEfectivo(
+          { color: build.color ?? null, folder_id: build.folder_id ?? null },
+          carpetas,
+        ),
         tags: build.tags ?? [],
         items: build.items ?? {},
         notes: build.notes ?? null,
