@@ -138,6 +138,39 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+/* La estrella de Novedades, cuando hay algo sin leer.
+   ----------------------------------------------------------------------------
+   Es la única animación en bucle de toda la aplicación, y se gana el lugar por
+   lo que hace: avisar de algo que pasó mientras no estabas mirando. Todas las
+   demás se sacaron porque acompañaban una acción tuya, y ahí una animación solo
+   llega tarde.
+
+   Late despacio y sin moverse de lugar: un brillo que crece y afloja. Un
+   parpadeo rápido o un salto pelearían con lo que estés haciendo en la pantalla,
+   que es justo lo que un aviso no tiene que hacer. */
+@keyframes destello {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    filter: drop-shadow(0 0 5px var(--accent));
+  }
+}
+
+.destella {
+  color: var(--accent);
+  animation: destello 2.4s ease-in-out infinite;
+}
+
+/* Quien pidió menos movimiento igual tiene que enterarse: se queda el color,
+   que ya distingue el ícono del resto de la barra. */
+@media (prefers-reduced-motion: reduce) {
+  .destella {
+    animation: none;
+  }
+}
+
 /* Las columnas que se desplazan reservan el lugar de su barra.
    ----------------------------------------------------------------------------
    En Linux y en Mac la barra se dibuja ENCIMA del contenido y solo aparece al

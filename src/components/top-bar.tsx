@@ -47,13 +47,6 @@ export function TopBar({ game, games, email, theme }: Props) {
     { href: base, etiqueta: "Party Maker", icono: Users, aviso: false },
     { href: `${base}/builds`, etiqueta: "Builds", icono: Shirt, aviso: false },
     { href: `${base}/historial`, etiqueta: "Historial", icono: History, aviso: false },
-    {
-      href: `${base}/novedades`,
-      etiqueta: "Novedades",
-      icono: Sparkles,
-      // Un punto y no un número: lo que importa es «hay algo», no cuántas.
-      aviso: hayNovedades,
-    },
   ];
 
   /** Party Maker cubre también la pantalla de una composición abierta. */
@@ -94,6 +87,20 @@ export function TopBar({ game, games, email, theme }: Props) {
             etiqueta="Calculadora"
             Icono={CalculatorIcon}
           />
+
+          {/* Novedades no es una sección más: no se trabaja ahí, se pasa a
+              mirar qué cambió. La línea la separa de las que sí son lugares
+              donde uno hace cosas. */}
+          <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-border" />
+
+          <ItemNav
+            href={`${base}/novedades`}
+            activo={activa(`${base}/novedades`)}
+            etiqueta="Novedades"
+            Icono={Sparkles}
+            aviso={hayNovedades}
+            soloIcono
+          />
         </nav>
 
         <div className="flex shrink-0 items-center gap-2">
@@ -131,14 +138,17 @@ function ItemNav({
   etiqueta,
   Icono,
   aviso = false,
+  soloIcono = false,
 }: {
   href?: string;
   onClick?: () => void;
   activo: boolean;
   etiqueta: string;
-  Icono: React.ComponentType<{ size?: number }>;
+  Icono: React.ComponentType<{ size?: number; className?: string }>;
   /** Hay algo sin leer detrás de este enlace. */
   aviso?: boolean;
+  /** Sin texto, nunca: el ícono se explica solo y ocupa un cuarto. */
+  soloIcono?: boolean;
 }) {
   const clases = `relative flex h-11 items-center gap-2 rounded-lg px-2.5 text-sm transition-colors sm:px-3 ${
     activo ? "text-text" : "text-muted hover:bg-surface-2 hover:text-text"
@@ -146,16 +156,8 @@ function ItemNav({
 
   const contenido = (
     <>
-      <span className="relative flex">
-        <Icono size={17} />
-        {aviso && (
-          <span
-            aria-hidden
-            className="absolute -right-1 -top-1 size-2 rounded-full bg-accent ring-2 ring-surface"
-          />
-        )}
-      </span>
-      <span className="hidden sm:inline">{etiqueta}</span>
+      <Icono size={17} className={aviso ? "destella" : undefined} />
+      {!soloIcono && <span className="hidden sm:inline">{etiqueta}</span>}
       {aviso && <span className="sr-only">(hay novedades sin leer)</span>}
       {activo && (
         <span
