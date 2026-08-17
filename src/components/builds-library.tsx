@@ -37,6 +37,8 @@ import { Flotante } from "@/components/flotante";
 import { ColorPicker, type UsedColor } from "@/components/color-picker";
 import { ItemIcon } from "@/components/item-icon";
 import { MoverA, type Destino } from "@/components/mover-a";
+import { BotonExportar, BotonImportar } from "@/components/transferencia";
+import { exportarBuilds } from "@/app/actions/transferir";
 import { esProvisional, idProvisional, useOptimista } from "@/components/optimista";
 import {
   colorEfectivo,
@@ -417,7 +419,25 @@ export function BuildsLibrary({
           />
         )}
 
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <BotonImportar gameId={gameId} />
+
+          <BotonExportar
+            obtener={() =>
+              exportarBuilds(
+                gameId,
+                seleccionada,
+                seleccionada ? (folderById.get(seleccionada)?.name ?? null) : null,
+              )
+            }
+            nombre={
+              seleccionada
+                ? (folderById.get(seleccionada)?.name ?? "builds")
+                : "builds-sueltas"
+            }
+            etiqueta="Exportar las builds de esta carpeta"
+          />
+
           <button
             type="button"
             onClick={() => nuevaCarpeta(null)}

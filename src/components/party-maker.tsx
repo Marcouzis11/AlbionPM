@@ -21,6 +21,8 @@ import {
 import { propsDeArrastre } from "@/components/arrastre";
 import { GrillaCarpetas, type FichaDeCarpeta } from "@/components/carpetas";
 import { MoverA } from "@/components/mover-a";
+import { BotonExportar, BotonImportar } from "@/components/transferencia";
+import { exportarComposicion } from "@/app/actions/transferir";
 import { idProvisional, useOptimista } from "@/components/optimista";
 import { colorSugerido, PALETA_CONTENIDOS } from "@/lib/color";
 import type { Content } from "@/lib/data/contents";
@@ -194,16 +196,20 @@ export function PartyMaker({
           </p>
         </div>
 
-        {!creando && (
-          <button
-            type="button"
-            onClick={() => setCreando(true)}
-            className="flex h-11 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover active:translate-y-px"
-          >
-            <Plus size={16} aria-hidden />
-            Nuevo contenido
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <BotonImportar gameId={gameId} />
+
+          {!creando && (
+            <button
+              type="button"
+              onClick={() => setCreando(true)}
+              className="flex h-11 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover active:translate-y-px"
+            >
+              <Plus size={16} aria-hidden />
+              Nuevo contenido
+            </button>
+          )}
+        </div>
       </div>
 
       {creando && (
@@ -640,6 +646,13 @@ function ContenidoAbierto({
                 {formatearCorta(comp.event_at, comp.event_tz)}
               </span>
             </Link>
+
+            <BotonExportar
+              obtener={() => exportarComposicion(comp.id)}
+              nombre={comp.name}
+              etiqueta={`Exportar ${comp.name} con sus builds`}
+              compacto
+            />
 
             <button
               type="button"

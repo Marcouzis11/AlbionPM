@@ -26,6 +26,13 @@ export type Novedad = {
 export const NOVEDADES: Novedad[] = [
   {
     fecha: "2026-08-17",
+    titulo: "Exportar e importar",
+    detalle:
+      "Bajás una composición a un archivo y se lleva las builds que usa. Quien lo importa las recibe enganchadas, en un contenido «Importados» y una carpeta con el nombre de la composición. También se pueden exportar carpetas de builds sueltas.",
+    donde: "Todo",
+  },
+  {
+    fecha: "2026-08-17",
     titulo: "Novedades",
     detalle:
       "Esta misma pantalla. Cada vez que se agregue algo nuevo va a aparecer acá, con un punto en la barra hasta que lo leas.",
