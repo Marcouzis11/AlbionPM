@@ -441,7 +441,7 @@ export function BuildsLibrary({
         resultados.length === 0 ? (
           <Vacio>Ninguna build coincide con el filtro.</Vacio>
         ) : (
-          <div className="con-barra min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="con-barra min-h-0 flex-1 overflow-y-auto pr-3">
             {grillaDeBuilds(resultados, true)}
           </div>
         )
@@ -450,7 +450,7 @@ export function BuildsLibrary({
         // se tocan de vez en cuando; las builds se miran todo el tiempo, así
         // que el ancho va donde está el trabajo.
         <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,3fr)]">
-          <div className="con-barra min-h-0 overflow-y-auto rounded-xl border border-border bg-surface p-2">
+          <div className="con-barra min-h-0 overflow-y-auto rounded-xl border border-border bg-surface p-2 pr-3">
             <FilaRaiz
               seleccionada={seleccionada === null}
               cuantas={buildsDe(null).length}
@@ -496,7 +496,7 @@ export function BuildsLibrary({
             </div>
 
             {deLaSeleccionada.length > 0 ? (
-              <div className="con-barra min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="con-barra min-h-0 flex-1 overflow-y-auto pr-3">
                 {grillaDeBuilds(deLaSeleccionada, false)}
               </div>
             ) : (
