@@ -105,7 +105,7 @@ export function GrillaCarpetas({
     // cuenta: sin eso una celda de grilla crece con su contenido en vez de
     // recortarlo, y el scroll nunca aparece.
     <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-      <ul className="grid min-h-0 grid-cols-2 content-start gap-3 overflow-y-auto sm:grid-cols-3 lg:grid-cols-2">
+      <ul className="con-barra grid min-h-0 grid-cols-2 content-start gap-3 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-2">
         {carpetas.map((carpeta) => (
           <li key={carpeta.id}>
             <Ficha
@@ -273,7 +273,7 @@ function CuerpoPanel({
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">{carpeta.panel()}</div>
+      <div className="con-barra min-h-0 flex-1 overflow-y-auto p-3">{carpeta.panel()}</div>
     </div>
   );
 }

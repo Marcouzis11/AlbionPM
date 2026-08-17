@@ -138,6 +138,16 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+/* Las columnas que se desplazan reservan el lugar de su barra.
+   ----------------------------------------------------------------------------
+   En Linux y en Mac la barra se dibuja ENCIMA del contenido y solo aparece al
+   desplazar, así que tapaba el borde de las carpetas justo cuando se estaba
+   mirando. `stable` le reserva su carril siempre: la columna mide lo mismo con
+   barra y sin barra, y de paso nada salta cuando aparece. */
+.con-barra {
+  scrollbar-gutter: stable;
+}
+
 /* Foco visible y consistente. Usa el acento porque es el color que ya
    significa "esto está activo" en el resto de la interfaz. */
 :focus-visible {

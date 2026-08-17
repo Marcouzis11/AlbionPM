@@ -441,7 +441,7 @@ export function BuildsLibrary({
         resultados.length === 0 ? (
           <Vacio>Ninguna build coincide con el filtro.</Vacio>
         ) : (
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="con-barra min-h-0 flex-1 overflow-y-auto pr-1">
             {grillaDeBuilds(resultados, true)}
           </div>
         )
@@ -450,7 +450,7 @@ export function BuildsLibrary({
         // se tocan de vez en cuando; las builds se miran todo el tiempo, así
         // que el ancho va donde está el trabajo.
         <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,3fr)]">
-          <div className="min-h-0 overflow-y-auto rounded-xl border border-border bg-surface p-2">
+          <div className="con-barra min-h-0 overflow-y-auto rounded-xl border border-border bg-surface p-2">
             <FilaRaiz
               seleccionada={seleccionada === null}
               cuantas={buildsDe(null).length}
@@ -496,7 +496,7 @@ export function BuildsLibrary({
             </div>
 
             {deLaSeleccionada.length > 0 ? (
-              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="con-barra min-h-0 flex-1 overflow-y-auto pr-1">
                 {grillaDeBuilds(deLaSeleccionada, false)}
               </div>
             ) : (
@@ -765,7 +765,7 @@ function FilaRaiz({
       type="button"
       {...zona.props}
       onClick={onSeleccionar}
-      className={`flex min-h-9 w-full items-center gap-1.5 rounded-lg px-1.5 py-1 text-left transition-colors ${
+      className={`mb-0.5 flex min-h-9 w-full items-center gap-1.5 rounded-lg px-1.5 py-1 text-left transition-colors ${
         zona.encima
           ? "bg-accent/15 ring-1 ring-accent"
           : seleccionada
@@ -842,7 +842,10 @@ function FilaCarpeta({
       {...zona.props}
       {...propsDeArrastre({ tipo: "carpeta", id: folder.id, origen: folder.parent_id })}
       style={{ paddingLeft: nivel * 18 + 4 }}
-      className={`group flex min-h-9 items-center gap-1 rounded-lg pr-1 ${
+      // `mb-0.5` para que dos filas resaltadas no se toquen: sin ese respiro,
+      // el gris de una y el de la siguiente se leen como un solo bloque y se
+      // pierde dónde termina una carpeta y empieza la otra.
+      className={`group mb-0.5 flex min-h-9 items-center gap-1 rounded-lg pr-1 ${
         zona.encima
           ? "bg-accent/15 ring-1 ring-accent"
           : seleccionada
