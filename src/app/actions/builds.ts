@@ -130,6 +130,37 @@ export async function setFolderColor(
 }
 
 /**
+ * Reordena las carpetas que comparten madre.
+ *
+ * Recibe la lista completa ya ordenada, igual que las builds: el cliente sabe
+ * el orden que está mostrando, y mandarlo entero evita que las dos versiones se
+ * separen si alguien reordena desde dos pestañas.
+ */
+export async function reorderFolders(
+  ordenadas: { id: string; position: number }[],
+): Promise<ActionState> {
+  const supabase = await createClient();
+
+  const cambios = ordenadas
+    .map((carpeta, indice) => ({ id: carpeta.id, desde: carpeta.position, hasta: indice }))
+    .filter((cambio) => cambio.desde !== cambio.hasta);
+
+  if (cambios.length === 0) return {};
+
+  const resultados = await Promise.all(
+    cambios.map((cambio) =>
+      supabase.from("build_folders").update({ position: cambio.hasta }).eq("id", cambio.id),
+    ),
+  );
+
+  const fallo = resultados.find((resultado) => resultado.error);
+  if (fallo?.error) return { error: fallo.error.message };
+
+  revalidarBuilds();
+  return {};
+}
+
+/**
  * Reordena las builds de una carpeta.
  *
  * Recibe la lista completa ya ordenada y no un «mover del 3 al 1». El cliente

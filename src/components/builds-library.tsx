@@ -5,6 +5,7 @@ import {
   Folder,
   FolderOpen,
   FolderPlus,
+  GripVertical,
   Palette,
   Pencil,
   Plus,
@@ -22,6 +23,7 @@ import {
   moveFolder,
   renameFolder,
   reorderBuilds,
+  reorderFolders,
   saveBuild,
   setFolderColor,
 } from "@/app/actions/builds";
@@ -212,6 +214,41 @@ export function BuildsLibrary({
     return lista;
   }
 
+  /**
+   * Pone `arrastradaId` justo antes de `destinoId` entre sus hermanas.
+   *
+   * Inserta en vez de intercambiar, que es lo que uno espera de una lista
+   * vertical: la fila se mete donde la soltás y las demás corren un lugar. En
+   * la grilla de builds se intercambia porque insertar hacía un ciclo de
+   * reacomodos; en una lista sin vista previa ese problema no existe.
+   */
+  function reordenarCarpetas(arrastradaId: string, destinoId: string) {
+    const arrastrada = folders.find((f) => f.id === arrastradaId);
+    const destino = folders.find((f) => f.id === destinoId);
+    if (!arrastrada || !destino || arrastrada.parent_id !== destino.parent_id) return;
+
+    const hermanas = folders
+      .filter((f) => f.parent_id === arrastrada.parent_id)
+      .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
+
+    const resto = hermanas.filter((f) => f.id !== arrastradaId);
+    const donde = resto.findIndex((f) => f.id === destinoId);
+    if (donde < 0) return;
+    resto.splice(donde, 0, arrastrada);
+
+    const cambios = resto
+      .map((carpeta, indice) => ({ id: carpeta.id, parche: { position: indice } }))
+      .filter(({ id, parche }) => {
+        const previa = folders.find((f) => f.id === id);
+        return previa?.position !== parche.position;
+      });
+    if (cambios.length === 0) return;
+
+    carpetasOpt.editarVarios(cambios, () =>
+      reorderFolders(resto.map((f) => ({ id: f.id, position: f.position }))),
+    );
+  }
+
   function buildsDe(folderId: string | null): Build[] {
     return builds.filter((b) => b.folder_id === folderId);
   }
@@ -307,8 +344,12 @@ export function BuildsLibrary({
    * build apretada contra el borde de una columna de un cuarto de pantalla.
    */
   function rama(parentId: string | null, nivel: number): React.ReactNode {
+    // Por posición y no por el orden en que vinieron: es lo que mueve la
+    // manija, y ordenar acá es lo que hace que el cambio se vea al instante.
     const subcarpetas = importadosAlFinal(
-      folders.filter((f) => f.parent_id === parentId),
+      folders
+        .filter((f) => f.parent_id === parentId)
+        .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name)),
     );
 
     return (
@@ -356,9 +397,18 @@ export function BuildsLibrary({
                 (dato.tipo === "carpeta" &&
                   dato.id !== f.id &&
                   dato.origen !== f.id &&
-                  !esAncestra(dato.id, f.id))
+                  !esAncestra(dato.id, f.id)) ||
+                // Reordenar solo entre hermanas: una carpeta de otra rama no
+                // tiene lugar en esta lista.
+                (dato.tipo === "orden-carpeta" &&
+                  dato.id !== f.id &&
+                  dato.padre === f.parent_id)
               }
               onSoltar={(dato) => {
+                if (dato.tipo === "orden-carpeta") {
+                  reordenarCarpetas(dato.id, f.id);
+                  return;
+                }
                 abrir(f.id);
                 if (dato.tipo === "build") {
                   buildsOpt.editar(dato.id, { folder_id: f.id }, () =>
@@ -859,6 +909,13 @@ function FilaCarpeta({
   onBorrar: () => void;
 }) {
   const zona = useZonaDeSoltar(acepta, onSoltar);
+  const arrastrado = useArrastrado();
+
+  // Meter dentro y reordenar son dos cosas distintas y tienen que verse
+  // distinto: la carpeta entera resaltada dice «va acá adentro»; una línea
+  // arriba dice «va justo acá, antes de esta».
+  const reordenando = zona.encima && arrastrado?.tipo === "orden-carpeta";
+  const metiendo = zona.encima && !reordenando;
 
   return (
     <div
@@ -869,13 +926,27 @@ function FilaCarpeta({
       // el gris de una y el de la siguiente se leen como un solo bloque y se
       // pierde dónde termina una carpeta y empieza la otra.
       className={`group mb-0.5 flex min-h-9 items-center gap-1 rounded-lg pr-1 ${
-        zona.encima
+        metiendo
           ? "bg-accent/15 ring-1 ring-accent"
           : seleccionada
             ? "bg-surface-2"
             : "hover:bg-surface-2"
-      }`}
+      } ${reordenando ? "border-t-2 border-accent" : "border-t-2 border-transparent"}`}
     >
+      {!creandose && (
+        <span
+          {...propsDeArrastre({
+            tipo: "orden-carpeta",
+            id: folder.id,
+            padre: folder.parent_id,
+          })}
+          title="Arrastrar para cambiar el orden"
+          aria-hidden
+          className="flex size-5 shrink-0 cursor-grab items-center justify-center rounded text-border opacity-0 hover:text-muted focus-within:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
+        >
+          <GripVertical size={13} />
+        </span>
+      )}
       <button
         type="button"
         onClick={onAlternar}

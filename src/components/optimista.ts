@@ -123,6 +123,43 @@ export function useOptimista<T extends ConId>(delServidor: T[]) {
   }
 
   /**
+   * Cambia varias cosas de una, con UNA sola escritura.
+   *
+   * Reordenar mueve a todos los hermanos a la vez. Hacerlo con `editar` uno por
+   * uno dispararía una escritura y un refresco por cada fila movida.
+   */
+  function editarVarios(
+    cambios: { id: string; parche: Partial<T> }[],
+    accion: () => Promise<Resultado>,
+  ) {
+    const antesDe = new Map<string, Partial<T>>();
+    for (const { id, parche } of cambios) {
+      const actual = delServidor.find((x) => x.id === id);
+      const antes: Partial<T> = {};
+      if (actual) {
+        for (const clave of Object.keys(parche) as (keyof T)[]) antes[clave] = actual[clave];
+      }
+      antesDe.set(id, antes);
+    }
+
+    setParches((previo) => {
+      const siguiente = new Map(previo);
+      for (const { id, parche } of cambios) {
+        siguiente.set(id, { parche, antes: antesDe.get(id) ?? {} });
+      }
+      return siguiente;
+    });
+
+    correr(accion, () =>
+      setParches((previo) => {
+        const siguiente = new Map(previo);
+        for (const { id } of cambios) siguiente.delete(id);
+        return siguiente;
+      }),
+    );
+  }
+
+  /**
    * Crea algo. `provisional` es cómo se ve mientras tanto; su `id` no existe en
    * la base, así que no sirve para nada más que mostrarlo.
    */
@@ -156,7 +193,7 @@ export function useOptimista<T extends ConId>(delServidor: T[]) {
     correr(accion, () => {});
   }
 
-  return { lista, editar, agregar, quitar, hacer, error };
+  return { lista, editar, editarVarios, agregar, quitar, hacer, error };
 }
 
 /** Un identificador que solo vive hasta que el servidor devuelve el de verdad. */

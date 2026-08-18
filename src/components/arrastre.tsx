@@ -27,6 +27,14 @@ export type Arrastrado =
   | { tipo: "composicion"; id: string; origen: string }
   | { tipo: "build"; id: string; origen: string | null }
   | { tipo: "carpeta"; id: string; origen: string | null }
+  /**
+   * Una carpeta que se está reordenando entre sus hermanas.
+   *
+   * Es un tipo aparte de `carpeta` y no un detalle: soltar una carpeta SOBRE
+   * otra la mete adentro, y eso no es lo mismo que ponerla antes. La fila
+   * entera arrastra para meter; la manija, para ordenar.
+   */
+  | { tipo: "orden-carpeta"; id: string; padre: string | null }
   | { tipo: "grupo"; id: string; position: number }
   /** Una persona dentro de un grupo, con todo lo que tenga anotado. */
   | { tipo: "lugar"; id: string };

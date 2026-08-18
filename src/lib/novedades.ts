@@ -26,6 +26,13 @@ export type Novedad = {
 export const NOVEDADES: Novedad[] = [
   {
     fecha: "2026-08-17",
+    titulo: "Ordenar las carpetas de builds",
+    detalle:
+      "Cada carpeta tiene su manija a la izquierda: la arrastrás y la ponés donde quieras entre sus hermanas. Arrastrar la fila entera sigue sirviendo para meterla dentro de otra.",
+    donde: "Builds",
+  },
+  {
+    fecha: "2026-08-17",
     titulo: "Exportar e importar",
     detalle:
       "Bajás una composición a un archivo y se lleva las builds que usa. Quien lo importa las recibe enganchadas, en un contenido «Importados» y una carpeta con el nombre de la composición. También se pueden exportar carpetas de builds sueltas.",
