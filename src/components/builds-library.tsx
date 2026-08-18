@@ -925,7 +925,7 @@ function FilaCarpeta({
       // `mb-0.5` para que dos filas resaltadas no se toquen: sin ese respiro,
       // el gris de una y el de la siguiente se leen como un solo bloque y se
       // pierde dónde termina una carpeta y empieza la otra.
-      className={`group mb-0.5 flex min-h-9 items-center gap-1 rounded-lg pr-1 ${
+      className={`group mb-0.5 flex min-h-9 items-center gap-0.5 rounded-lg pr-0.5 ${
         metiendo
           ? "bg-accent/15 ring-1 ring-accent"
           : seleccionada
@@ -942,9 +942,9 @@ function FilaCarpeta({
           })}
           title="Arrastrar para cambiar el orden"
           aria-hidden
-          className="flex size-5 shrink-0 cursor-grab items-center justify-center rounded text-border opacity-0 hover:text-muted focus-within:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
+          className="-ml-0.5 flex h-6 w-3 shrink-0 cursor-grab items-center justify-center rounded text-border opacity-0 hover:text-muted focus-within:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
         >
-          <GripVertical size={13} />
+          <GripVertical size={12} />
         </span>
       )}
       <button
@@ -993,13 +993,13 @@ function FilaCarpeta({
       {creandose ? (
         <span className="shrink-0 pr-2 text-[11px] text-muted">Creando…</span>
       ) : (
-      <div className="flex shrink-0 items-center opacity-0 focus-within:opacity-100 group-hover:opacity-100">
+      <div className="flex shrink-0 items-center gap-px opacity-0 focus-within:opacity-100 group-hover:opacity-100">
         <button
           type="button"
           onClick={onNuevaBuild}
           aria-label={`Nueva build en ${folder.name}`}
           title="Nueva build acá"
-          className="flex size-7 items-center justify-center rounded text-muted transition-colors hover:text-text"
+          className="flex size-6 items-center justify-center rounded text-muted transition-colors hover:text-text"
         >
           <Plus size={14} aria-hidden />
         </button>
@@ -1008,7 +1008,7 @@ function FilaCarpeta({
           onClick={onNuevaCarpeta}
           aria-label={`Nueva subcarpeta en ${folder.name}`}
           title="Nueva subcarpeta"
-          className="flex size-7 items-center justify-center rounded text-muted transition-colors hover:text-text"
+          className="flex size-6 items-center justify-center rounded text-muted transition-colors hover:text-text"
         >
           <FolderPlus size={14} aria-hidden />
         </button>
@@ -1023,7 +1023,7 @@ function FilaCarpeta({
           onClick={onEmpezarRenombre}
           aria-label={`Renombrar ${folder.name}`}
           title="Renombrar"
-          className="flex size-7 items-center justify-center rounded text-muted transition-colors hover:text-text"
+          className="flex size-6 items-center justify-center rounded text-muted transition-colors hover:text-text"
         >
           <Pencil size={13} aria-hidden />
         </button>
@@ -1031,13 +1031,14 @@ function FilaCarpeta({
           etiqueta={`Mover la carpeta ${folder.name}`}
           destinos={destinos}
           onMover={onMover}
+          compacto
         />
         <button
           type="button"
           onClick={onBorrar}
           aria-label={`Borrar ${folder.name}`}
           title="Borrar"
-          className="flex size-7 items-center justify-center rounded text-muted transition-colors hover:text-danger"
+          className="flex size-6 items-center justify-center rounded text-muted transition-colors hover:text-danger"
         >
           <Trash2 size={13} aria-hidden />
         </button>
@@ -1076,7 +1077,7 @@ function ColorDeCarpeta({
         aria-expanded={abierto}
         aria-label={`Color de ${nombre}`}
         title="Color de la carpeta"
-        className="flex size-7 items-center justify-center rounded text-muted transition-colors hover:text-text"
+        className="flex size-6 items-center justify-center rounded text-muted transition-colors hover:text-text"
       >
         <span
           className="size-3.5 rounded-full ring-1 ring-inset ring-black/20"

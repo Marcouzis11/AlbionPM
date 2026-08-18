@@ -30,11 +30,14 @@ export function MoverA({
   etiqueta,
   destinos,
   onMover,
+  compacto = false,
 }: {
   /** Qué se mueve, para quien no ve el ícono. */
   etiqueta: string;
   destinos: Destino[];
   onMover: (destinoId: string) => void;
+  /** Dentro de una fila apretada, donde cada píxel se lo saca al nombre. */
+  compacto?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
   const boton = useRef<HTMLButtonElement>(null);
@@ -50,9 +53,11 @@ export function MoverA({
         aria-expanded={abierto}
         aria-label={etiqueta}
         title={etiqueta}
-        className="flex size-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-text"
+        className={`flex items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-text ${
+          compacto ? "size-6" : "size-8"
+        }`}
       >
-        <FolderInput size={15} aria-hidden />
+        <FolderInput size={compacto ? 13 : 15} aria-hidden />
       </button>
 
       {abierto && (
