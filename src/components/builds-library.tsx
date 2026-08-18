@@ -1066,14 +1066,41 @@ function ColorDeCarpeta({
   onElegir: (color: string | null) => void;
 }) {
   const [abierto, setAbierto] = useState(false);
+
+  /**
+   * El color mientras lo estás eligiendo, antes de guardarlo.
+   *
+   * El selector avisa en CADA movimiento del cursor. Enchufado directo a la
+   * base, arrastrar por el panel disparaba decenas de escrituras por segundo,
+   * cada una con su refresco de pantalla detrás. La aplicación quedaba tapada
+   * por esa cola: tocabas «Party Maker» y la navegación se encolaba atrás de
+   * todo, así que parecía trabada hasta recargar.
+   *
+   * Ahora el arrastre solo mueve este borrador, que no cuesta nada, y se
+   * escribe UNA vez al cerrar. Es lo mismo que hace el editor de builds, donde
+   * el color va al borrador y recién se guarda al guardar.
+   */
+  const [borrador, setBorrador] = useState<string | null>(color);
   const boton = useRef<HTMLButtonElement>(null);
+
+  function abrir() {
+    setBorrador(color);
+    setAbierto(true);
+  }
+
+  function cerrar() {
+    setAbierto(false);
+    if (borrador !== color) onElegir(borrador);
+  }
+
+  const muestra = abierto ? borrador : color;
 
   return (
     <span className="flex shrink-0 items-center">
       <button
         ref={boton}
         type="button"
-        onClick={() => setAbierto((v) => !v)}
+        onClick={() => (abierto ? cerrar() : abrir())}
         aria-expanded={abierto}
         aria-label={`Color de ${nombre}`}
         title="Color de la carpeta"
@@ -1081,22 +1108,23 @@ function ColorDeCarpeta({
       >
         <span
           className="size-3.5 rounded-full ring-1 ring-inset ring-black/20"
-          style={{ background: color ?? "transparent" }}
+          style={{ background: muestra ?? "transparent" }}
         >
-          {!color && <Palette size={14} aria-hidden />}
+          {!muestra && <Palette size={14} aria-hidden />}
         </span>
       </button>
 
       {abierto && (
-        <Flotante ancla={boton} onCerrar={() => setAbierto(false)} alineacion="derecha" className="w-72 p-3">
+        <Flotante ancla={boton} onCerrar={cerrar} alineacion="derecha" className="w-72 p-3">
           <p className="pb-2 text-[11px] font-medium text-muted">Color de la carpeta</p>
           {/* El mismo selector que dentro de una build: si la carpeta pinta sus
               builds, tiene que poder llegar al mismo color exacto. */}
-          <ColorPicker value={color} onChange={(nuevo) => onElegir(nuevo)} used={usedColors} />
+          <ColorPicker value={borrador} onChange={setBorrador} used={usedColors} />
           {color && (
             <button
               type="button"
               onClick={() => {
+                setBorrador(null);
                 setAbierto(false);
                 onElegir(null);
               }}
