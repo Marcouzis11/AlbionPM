@@ -7,7 +7,7 @@ import { Flotante } from "@/components/flotante";
 
 import { ItemIcon } from "@/components/item-icon";
 import { DISPOSICION_EQUIPO, type Build } from "@/lib/builds-shared";
-import type { EquipmentSlot } from "@/lib/items";
+import { SLOT_LABELS } from "@/lib/items";
 
 /**
  * La build de una persona dentro de una composición.
@@ -20,18 +20,6 @@ import type { EquipmentSlot } from "@/lib/items";
  * Desplegada muestra el equipo completo en la disposición del panel de
  * personaje del juego, para revisar una build puntual sin abrir otra pantalla.
  */
-
-const SLOT_LABELS: Record<EquipmentSlot, string> = {
-  mainhand: "Arma",
-  offhand: "Off-hand",
-  head: "Cabeza",
-  armor: "Pecho",
-  shoes: "Botas",
-  cape: "Capa",
-  food: "Comida",
-  potion: "Poción",
-  mount: "Montura",
-};
 
 export function BuildPeek({ build }: { build: Build | undefined }) {
   const [abierto, setAbierto] = useState(false);

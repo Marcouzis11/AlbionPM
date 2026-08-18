@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { ID_DE_ITEM, SLOT_LABELS, type EquipmentSlot } from "@/lib/items";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -33,7 +34,7 @@ export type ActionState = { error?: string; id?: string };
 
 /** Los nueve slots de equipo. Zod valida la forma antes de escribir. */
 const buildItemSchema = z.object({
-  id: z.string().regex(/^T\d_[A-Z0-9_]+$/, "Identificador de item inválido"),
+  id: z.string().regex(ID_DE_ITEM, "Identificador de item inválido"),
   ench: z.number().int().min(0).max(4).optional(),
   quality: z.number().int().min(1).max(5).optional(),
 });
@@ -367,7 +368,18 @@ export async function saveBuild(
 
   if (patch.items !== undefined) {
     const parsed = itemsSchema.safeParse(patch.items);
-    if (!parsed.success) return { error: "El equipo de la build tiene un formato inválido." };
+    if (!parsed.success) {
+      // El mensaje nombra el slot. La versión anterior decía solo «formato
+      // inválido» y dejaba a quien la veía revisando nueve casilleros a mano
+      // para adivinar cuál era el que no gustaba.
+      const clave = String(parsed.error.issues[0]?.path[0] ?? "");
+      const donde = SLOT_LABELS[clave as EquipmentSlot];
+      return {
+        error: donde
+          ? `No se pudo guardar lo que hay en «${donde}».`
+          : "El equipo de la build tiene un formato inválido.",
+      };
+    }
     update.items = parsed.data;
   }
 

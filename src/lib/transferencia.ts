@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { ID_DE_ITEM } from "@/lib/items";
+
 /**
  * El formato de los archivos que se exportan e importan.
  *
@@ -23,7 +25,7 @@ import { z } from "zod";
 export const VERSION = 1;
 
 const itemSchema = z.object({
-  id: z.string().regex(/^T\d_[A-Z0-9_]+$/, "Identificador de item inválido"),
+  id: z.string().regex(ID_DE_ITEM, "Identificador de item inválido"),
   ench: z.number().int().min(0).max(4).optional(),
   quality: z.number().int().min(1).max(5).optional(),
 });

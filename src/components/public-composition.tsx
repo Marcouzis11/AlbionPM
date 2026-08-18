@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ItemIcon } from "@/components/item-icon";
 import { DISPOSICION_EQUIPO } from "@/lib/builds-shared";
-import { EQUIPMENT_SLOTS, type EquipmentSlot } from "@/lib/items";
+import { EQUIPMENT_SLOTS, SLOT_LABELS } from "@/lib/items";
 import {
   buscarJugador,
   formatearEvento,
@@ -22,18 +22,6 @@ import { textoSobre } from "@/lib/color";
  * hacer. Por eso la composición entera llega ya renderizada desde el servidor y
  * el buscador filtra sobre datos que ya están en la página: ni una petición más.
  */
-
-const SLOT_LABELS: Record<EquipmentSlot, string> = {
-  mainhand: "Arma",
-  offhand: "Off-hand",
-  head: "Cabeza",
-  armor: "Pecho",
-  shoes: "Botas",
-  cape: "Capa",
-  food: "Comida",
-  potion: "Poción",
-  mount: "Montura",
-};
 
 /** Guarda el nombre buscado en el navegador de quien mira. */
 const RECUERDO = "albionpm-mi-nombre";

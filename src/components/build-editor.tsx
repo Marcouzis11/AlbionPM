@@ -10,20 +10,7 @@ import {
   type Build,
   type Role,
 } from "@/lib/builds-shared";
-import { type BuildItem, type EquipmentSlot } from "@/lib/items";
-
-/** Los nueve slots, con el nombre que usa la gente. */
-const SLOT_LABELS: Record<EquipmentSlot, string> = {
-  mainhand: "Arma",
-  offhand: "Off-hand",
-  head: "Cabeza",
-  armor: "Pecho",
-  shoes: "Botas",
-  cape: "Capa",
-  food: "Comida",
-  potion: "Poción",
-  mount: "Montura",
-};
+import { SLOT_LABELS, type BuildItem, type EquipmentSlot } from "@/lib/items";
 
 type Props = {
   build: Build;

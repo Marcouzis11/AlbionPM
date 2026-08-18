@@ -29,8 +29,48 @@ export const EQUIPMENT_SLOTS: readonly EquipmentSlot[] = [
   "mount",
 ] as const;
 
+/**
+ * Los nueve slots, con el nombre que usa la gente.
+ *
+ * Vive acá porque lo necesitan cuatro lugares —el editor, la vista rápida, la
+ * pantalla pública y el mensaje de error del servidor— y hasta ahora eran tres
+ * copias idénticas del mismo objeto esperando a dejar de serlo.
+ */
+export const SLOT_LABELS: Record<EquipmentSlot, string> = {
+  mainhand: "Arma",
+  offhand: "Off-hand",
+  head: "Cabeza",
+  armor: "Pecho",
+  shoes: "Botas",
+  cape: "Capa",
+  food: "Comida",
+  potion: "Poción",
+  mount: "Montura",
+};
+
+/**
+ * La forma que puede tener el identificador de un item del catálogo.
+ *
+ * Está acá y no en cada esquema de Zod porque se valida en dos lugares —al
+ * guardar una build y al importar un archivo— y las dos copias se escribieron
+ * mirando solo los ids con tier. Las dos rechazaban lo mismo:
+ *
+ * - **`UNIQUE_…`**, los 46 identificadores que no llevan tier: las monturas de
+ *   temporada y las de cristal, oro y plata. O sea, justo las de ZvZ.
+ * - **`…@1`**, los seis que traen el encantamiento pegado al identificador
+ *   porque en el juego no existen sin él (Garrapresta, el Mamut de comando).
+ *
+ * Verificado contra las 1.509 entradas del catálogo: no queda ninguna afuera.
+ */
+export const ID_DE_ITEM = /^(T\d|UNIQUE)_[A-Z0-9_]+(@\d)?$/;
+
 export type CatalogItem = {
-  /** `UniqueName` del juego, sin encantamiento. Ej: `T8_MAIN_SWORD` */
+  /**
+   * `UniqueName` del juego. Ej: `T8_MAIN_SWORD`, `UNIQUE_MOUNT_BEHEMOTH_GOLD`.
+   *
+   * Sin encantamiento, salvo los que en el juego no existen sin él y lo traen
+   * pegado (`T5_MOUNT_COUGAR_KEEPER@1`). Ver `ID_DE_ITEM`.
+   */
   id: string;
   en: string;
   es: string;

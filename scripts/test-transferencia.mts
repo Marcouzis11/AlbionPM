@@ -12,6 +12,9 @@
 
 import assert from "node:assert/strict";
 
+import catalogo from "@/data/items.json" with { type: "json" };
+import { ID_DE_ITEM } from "@/lib/items.ts";
+
 import {
   archivoSchema,
   esImportados,
@@ -119,6 +122,33 @@ prueba("un identificador de item inventado se rechaza", () => {
   const sucio = structuredClone(composicionValida);
   sucio.builds[0].items = { mainhand: { id: "rm -rf /" } } as never;
   assert.equal(archivoSchema.safeParse(sucio).success, false);
+});
+
+/**
+ * Esta prueba nació de un error real: el filtro de identificadores estaba
+ * escrito mirando solo los ids con tier (`T8_MAIN_MACE`), así que rechazaba las
+ * monturas de cristal, oro y plata —que no llevan tier— y las seis que traen el
+ * encantamiento pegado. Guardar una build con cualquiera de esas fallaba con
+ * «formato inválido», sin decir cuál de los nueve slots tenía el problema.
+ *
+ * Se prueba contra el catálogo entero y no contra tres ejemplos: el catálogo se
+ * regenera desde los dumps del juego, y el día que aparezca una familia nueva
+ * de identificadores esto tiene que avisar antes que un usuario.
+ */
+prueba("todos los items del catálogo se pueden guardar", () => {
+  const rechazados = catalogo
+    .filter((item) => !ID_DE_ITEM.test(item.id))
+    .map((item) => item.id);
+
+  assert.deepEqual(rechazados, [], `el catálogo trae ids que el filtro rechaza`);
+});
+
+prueba("una montura sin tier y una con encantamiento fijo se aceptan", () => {
+  for (const id of ["UNIQUE_MOUNT_BEHEMOTH_CRYSTAL", "T5_MOUNT_COUGAR_KEEPER@1"]) {
+    const archivo = structuredClone(composicionValida);
+    archivo.builds[0].items = { mount: { id } } as never;
+    assert.equal(archivoSchema.safeParse(archivo).success, true, id);
+  }
 });
 
 prueba("un color que no es hexadecimal se rechaza", () => {
