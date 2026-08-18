@@ -227,7 +227,12 @@ function PanelCompartir({
         <div className="flex flex-wrap items-center gap-3">
           <p className="flex-1 text-sm text-muted">
             Generá un link para que tu gremio vea la composición sin registrarse.
-            Cada jugador se busca por su nombre y ve su build, su grupo y su líder.
+            Cada jugador se busca por su nombre y ve su build, su grupo y su líder.{" "}
+            <span className="text-text">
+              El link es permanente y se actualiza solo:
+            </span>{" "}
+            lo pegás una vez en el Discord y lo que edites después lo ve quien lo
+            abra, sin volver a generarlo ni pasarlo de nuevo.
           </p>
           <button
             type="button"
@@ -286,6 +291,12 @@ function PanelCompartir({
           >
             Dejar de compartir
           </button>
+
+          <p className="w-full text-[11px] leading-relaxed text-muted">
+            Este link no vence ni cambia. Editá la composición todo lo que quieras:
+            quien lo abra siempre ve la última versión, así que no hace falta
+            generarlo de nuevo ni volver a repartirlo.
+          </p>
         </div>
       )}
     </div>
