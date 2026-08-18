@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   archivoSchema,
   CARPETA_IMPORTADOS,
+  GRIS_IMPORTADOS,
   VERSION,
   type ArchivoBuilds,
   type ArchivoComposicion,
@@ -209,6 +210,9 @@ async function carpetaPorNombre(
   const { data: existente } = await consulta.limit(1).maybeSingle();
   if (existente?.id) return existente.id;
 
+  // Sin color a propósito, y no es un olvido: una carpeta de builds pinta lo
+  // que tiene adentro. Un gris explícito acá le robaría el color a cualquier
+  // build importada que no traiga el suyo, y sin color se ve gris igual.
   const { data } = await supabase
     .from("build_folders")
     .insert({ owner_id: ownerId, game_id: gameId, name, parent_id: parentId })
@@ -342,8 +346,10 @@ export async function importar(
         owner_id: ownerId,
         game_id: gameId,
         name: CARPETA_IMPORTADOS,
-        color: "#8FC33B",
-        position: 999,
+        color: GRIS_IMPORTADOS,
+        // Igual se ordena en la pantalla, pero si algún día se ordenara por
+        // posición, esta la deja donde corresponde.
+        position: 9999,
       })
       .select("id")
       .single();

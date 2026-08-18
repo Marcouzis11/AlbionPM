@@ -124,6 +124,31 @@ export type Archivo = z.infer<typeof archivoSchema>;
 export const CARPETA_IMPORTADOS = "Importados";
 
 /**
+ * El gris de «Importados».
+ *
+ * Un color de la paleta la haría parecer una carpeta tuya más. Gris dice lo
+ * que es: un depósito de lo que llegó de afuera, no una categoría que hayas
+ * decidido.
+ */
+export const GRIS_IMPORTADOS = "#8b8b96";
+
+export function esImportados(nombre: string): boolean {
+  return nombre.trim().toLowerCase() === CARPETA_IMPORTADOS.toLowerCase();
+}
+
+/**
+ * Ordena dejando «Importados» al final, sin tocar el orden del resto.
+ *
+ * Va al final porque no es tuya: la creó una importación. Arriba van las
+ * carpetas que armaste vos, que son las que abrís todos los días.
+ */
+export function importadosAlFinal<T extends { name: string }>(lista: T[]): T[] {
+  const propias = lista.filter((x) => !esImportados(x.name));
+  const importados = lista.filter((x) => esImportados(x.name));
+  return [...propias, ...importados];
+}
+
+/**
  * Un nombre de archivo que se pueda escribir en cualquier sistema.
  *
  * Windows rechaza `\\ / : * ? " < > |`, y un nombre con acentos viaja mal por

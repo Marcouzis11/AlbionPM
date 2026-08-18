@@ -49,6 +49,7 @@ import {
   type Role,
 } from "@/lib/builds-shared";
 import { textoSobre } from "@/lib/color";
+import { importadosAlFinal } from "@/lib/transferencia";
 
 /**
  * Biblioteca de builds.
@@ -306,7 +307,9 @@ export function BuildsLibrary({
    * build apretada contra el borde de una columna de un cuarto de pantalla.
    */
   function rama(parentId: string | null, nivel: number): React.ReactNode {
-    const subcarpetas = folders.filter((f) => f.parent_id === parentId);
+    const subcarpetas = importadosAlFinal(
+      folders.filter((f) => f.parent_id === parentId),
+    );
 
     return (
       <>

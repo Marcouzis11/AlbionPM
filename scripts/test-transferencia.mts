@@ -14,6 +14,8 @@ import assert from "node:assert/strict";
 
 import {
   archivoSchema,
+  esImportados,
+  importadosAlFinal,
   nombreDeArchivo,
   VERSION,
 } from "../src/lib/transferencia.ts";
@@ -148,6 +150,24 @@ prueba("el nombre del archivo sobrevive a acentos y barras", () => {
   assert.equal(nombreDeArchivo("CTA del sábado"), "CTA-del-sabado.albionpm.json");
   assert.equal(nombreDeArchivo("a/b\\c:d"), "abcd.albionpm.json");
   assert.equal(nombreDeArchivo("¿?¡!"), "albionpm.albionpm.json");
+});
+
+
+prueba("«Importados» queda al final sin desordenar el resto", () => {
+  const antes = [
+    { name: "Importados" },
+    { name: "CTA" },
+    { name: "Gankeo" },
+  ];
+  assert.deepEqual(
+    importadosAlFinal(antes).map((x) => x.name),
+    ["CTA", "Gankeo", "Importados"],
+  );
+});
+
+prueba("el nombre se reconoce sin importar mayúsculas ni espacios", () => {
+  assert.equal(esImportados("  importados "), true);
+  assert.equal(esImportados("Importados de Juan"), false);
 });
 
 console.log(`\n${pasadas} pruebas pasadas\n`);

@@ -25,6 +25,7 @@ import { BotonExportar, BotonImportar } from "@/components/transferencia";
 import { exportarComposicion } from "@/app/actions/transferir";
 import { idProvisional, useOptimista } from "@/components/optimista";
 import { colorSugerido, PALETA_CONTENIDOS } from "@/lib/color";
+import { importadosAlFinal } from "@/lib/transferencia";
 import type { Content } from "@/lib/data/contents";
 import type { CompositionSummary } from "@/lib/data/compositions";
 
@@ -114,7 +115,7 @@ export function PartyMaker({
   const carpetasOptimistas = useOptimista<Content>(contents);
   const compsOptimistas = useOptimista<CompositionSummary>(compositions);
 
-  const contenidosVisibles = carpetasOptimistas.lista;
+  const contenidosVisibles = importadosAlFinal(carpetasOptimistas.lista);
   const composicionesVisibles = compsOptimistas.lista;
 
   const porContenido = new Map<string, CompositionSummary[]>();
