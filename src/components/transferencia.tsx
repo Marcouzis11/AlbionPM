@@ -1,7 +1,8 @@
 "use client";
 
-import { Download, Upload } from "lucide-react";
-import { useRef, useState, useTransition } from "react";
+import { Download, Upload, X } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
 import { importar } from "@/app/actions/transferir";
@@ -29,6 +30,57 @@ export function descargar(datos: unknown, base: string) {
   // Sin esto el navegador se queda con el archivo entero en memoria hasta que
   // se cierre la pestaña.
   URL.revokeObjectURL(url);
+}
+
+/**
+ * El aviso de que algo salió bien o mal.
+ *
+ * Va en el `body` y con posición fija, fuera del flujo de la página. Antes se
+ * dibujaba como un hermano más de los botones: al aparecer le sumaba una
+ * línea a esa fila, la fila crecía, y el título de la pantalla se corría de
+ * lugar. Un aviso no puede reacomodar lo que estabas mirando.
+ *
+ * El de éxito se va solo a los seis segundos; el de error se queda hasta que lo
+ * cierres, porque si algo falló probablemente quieras leerlo dos veces.
+ */
+function Aviso({
+  texto,
+  esError,
+  onCerrar,
+}: {
+  texto: string;
+  esError: boolean;
+  onCerrar: () => void;
+}) {
+  useEffect(() => {
+    if (esError) return;
+    const reloj = setTimeout(onCerrar, 6000);
+    return () => clearTimeout(reloj);
+  }, [esError, onCerrar]);
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      role="alert"
+      className={`fixed bottom-4 left-1/2 z-50 flex max-w-[min(34rem,calc(100vw-2rem))] -translate-x-1/2 items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-xl ${
+        esError
+          ? "border-danger/40 bg-danger/10 text-danger"
+          : "border-success/40 bg-success/10 text-success"
+      }`}
+    >
+      <span className="min-w-0 flex-1">{texto}</span>
+      <button
+        type="button"
+        onClick={onCerrar}
+        aria-label="Cerrar el aviso"
+        className="-mr-1 -mt-0.5 shrink-0 rounded p-1 opacity-70 hover:opacity-100"
+      >
+        <X size={14} aria-hidden />
+      </button>
+    </div>,
+    document.body,
+  );
 }
 
 /** Un botón que exporta lo que le devuelva `obtener`. */
@@ -76,11 +128,7 @@ export function BotonExportar({
         <Download size={compacto ? 14 : 15} aria-hidden />
         {!compacto && <span className="hidden sm:inline">Exportar</span>}
       </button>
-      {error && (
-        <span role="alert" className="text-xs text-danger">
-          {error}
-        </span>
-      )}
+      {error && <Aviso texto={error} esError onCerrar={() => setError(null)} />}
     </>
   );
 }
@@ -134,16 +182,11 @@ export function BotonImportar({ gameId }: { gameId: string }) {
       </button>
 
       {aviso && (
-        <p
-          role="alert"
-          className={`w-full rounded-lg border px-3 py-2 text-sm ${
-            aviso.error
-              ? "border-danger/40 bg-danger/10 text-danger"
-              : "border-success/40 bg-success/10 text-success"
-          }`}
-        >
-          {aviso.error ?? aviso.mensaje}
-        </p>
+        <Aviso
+          texto={aviso.error ?? aviso.mensaje ?? ""}
+          esError={Boolean(aviso.error)}
+          onCerrar={() => setAviso(null)}
+        />
       )}
     </>
   );
